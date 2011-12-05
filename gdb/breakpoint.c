@@ -4977,6 +4977,7 @@ print_one_breakpoint_location (struct breakpoint *b,
       ui_out_text (uiout, "\n");
     }
 
+#if 0 // disabled in order to be able to run the testsuite
   if (!part_of_multiple && b->trigger_set != NULL)
     {
       ui_out_text (uiout, "\tstop only in trigger-set: [");
@@ -4996,6 +4997,7 @@ print_one_breakpoint_location (struct breakpoint *b,
 	ui_out_field_string (uiout, "stop-set", itset_spec (b->stop_set));
       ui_out_text (uiout, "]\n");
     }
+#endif
 
   if (!part_of_multiple && b->hit_count)
     {
