@@ -59,7 +59,7 @@ int using_threads = 0;
 
 /* Defined in auto-generated file reg-spu.c.  */
 void init_registers_spu (void);
-
+extern struct target_desc *tdesc_spu;
 
 /* Fetch PPU register REGNO.  */
 static CORE_ADDR
@@ -269,6 +269,7 @@ spu_create_inferior (char *program, char **allargs)
 {
   int pid;
   ptid_t ptid;
+  struct process_info *proc;
 
   pid = fork ();
   if (pid < 0)
@@ -290,7 +291,8 @@ spu_create_inferior (char *program, char **allargs)
       _exit (0177);
     }
 
-  add_process (pid, 0);
+  proc = add_process (pid, 0);
+  proc->tdesc = tdesc_spu;
 
   ptid = ptid_build (pid, pid, 0);
   add_thread (ptid, NULL);
@@ -302,6 +304,7 @@ int
 spu_attach (unsigned long  pid)
 {
   ptid_t ptid;
+  struct process_info *proc;
 
   if (ptrace (PTRACE_ATTACH, pid, 0, 0) != 0)
     {
@@ -311,7 +314,8 @@ spu_attach (unsigned long  pid)
       _exit (0177);
     }
 
-  add_process (pid, 1);
+  proc = add_process (pid, 1);
+  proc->tdesc = tdesc_spu;
   ptid = ptid_build (pid, pid, 0);
   add_thread (ptid, NULL);
   return 0;
