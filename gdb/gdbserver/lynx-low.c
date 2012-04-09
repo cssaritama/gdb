@@ -30,6 +30,8 @@
 
 int using_threads = 1;
 
+struct target_desc *lynx_tdesc;
+
 /* Print a debug trace on standard output if debug_threads is set.  */
 
 static void
@@ -317,6 +319,7 @@ lynx_create_inferior (char *program, char **allargs)
     }
 
   new_process = add_process (pid, 0);
+  new_process->tdesc = lynx_tdesc;
   /* Do not add the process thread just yet, as we do not know its tid.
      We will add it later, during the wait for the STOP event corresponding
      to the lynx_ptrace (PTRACE_TRACEME) call above.  */
@@ -336,6 +339,7 @@ lynx_attach (unsigned long pid)
 	   strerror (errno), errno);
 
   new_process = add_process (pid, 1);
+  new_process->tdesc = lynx_tdesc;
   add_thread (ptid, NULL);
 
   return 0;

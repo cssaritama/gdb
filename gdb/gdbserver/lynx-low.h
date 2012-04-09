@@ -18,6 +18,7 @@
 #include "server.h"
 
 struct regcache;
+struct target_desc;
 
 /*  Some information relative to a given register set.   */
 
@@ -50,3 +51,6 @@ struct lynx_target_ops
 
 extern struct lynx_target_ops the_low_target;
 
+/* The inferior's target description.  A global, since the Lynx ports
+   don't support multi-arch/multi-process.  */
+extern struct target_desc *lynx_tdesc;
