@@ -44,8 +44,51 @@ struct regset_info
   regset_fill_func fill_function;
   regset_store_func store_function;
 };
-extern struct regset_info target_regsets[];
+
+/* Aggregation of all the supported regsets of a given
+   architecture/mode.  */
+
+struct regsets_info
+{
+  struct regset_info *regsets;
+  int num_regsets;
+  char *disabled_regsets;
+};
+
 #endif
+
+/* Mapping between the general-purpose registers in `struct user'
+   format and GDB's register array layout.  */
+
+struct usrregs_info
+{
+  /* The number of registers accessible.  */
+  int num_regs;
+
+  /* The registers map.  */
+  int *regmap;
+};
+
+/* All info needed to access an architecture/mode's registers.  */
+
+struct regs_info
+{
+  /* Regset support bitmap: 1 for registers that are transferred as a part
+     of a regset, 0 for ones that need to be handled individually.  This
+     can be NULL if all registers are transferred with regsets or regsets
+     are not supported.  */
+  unsigned char *regset_bitmap;
+
+  /* Info used when accessing registers with PTRACE_PEEKUSER /
+     PTRACE_POKEUSER.  This can be NULL if all registers are
+     transferred with regsets  .*/
+  struct usrregs_info *usrregs;
+
+#ifdef HAVE_LINUX_REGSETS
+  /* Info used when accessing registers with regsets.  */
+  struct regsets_info *regsets_info;
+#endif
+};
 
 struct process_info_private
 {
@@ -58,6 +101,11 @@ struct process_info_private
 
   /* &_r_debug.  0 if not yet determined.  -1 if no PT_DYNAMIC in Phdrs.  */
   CORE_ADDR r_debug;
+
+  /* This flag is true iff we've just created or attached to the first
+     LWP of this process but it has not stopped yet.  As soon as it
+     does, we need to call the low target's arch_setup callback.  */
+  int new_inferior;
 };
 
 struct lwp_info;
@@ -67,14 +115,7 @@ struct linux_target_ops
   /* Architecture-specific setup.  */
   void (*arch_setup) (void);
 
-  int num_regs;
-  int *regmap;
-
-  /* Regset support bitmap: 1 for registers that are transferred as a part
-     of a regset, 0 for ones that need to be handled individually.  This
-     can be NULL if all registers are transferred with regsets or regsets
-     are not supported.  */
-  unsigned char *regset_bitmap;
+  const struct regs_info *(*regs_info) (void);
   int (*cannot_fetch_register) (int);
 
   /* Returns 0 if we can store the register, 1 if we can not
@@ -283,6 +324,12 @@ int linux_pid_exe_is_elf_64_file (int pid);
 void linux_attach_lwp (unsigned long pid);
 struct lwp_info *find_lwp_pid (ptid_t ptid);
 void linux_stop_lwp (struct lwp_info *lwp);
+
+#ifdef HAVE_LINUX_REGSETS
+void initialize_regsets_info (struct regsets_info *regsets_info);
+#endif
+
+void initialize_low_arch (void);
 
 /* From thread-db.c  */
 int thread_db_init (int use_events);

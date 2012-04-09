@@ -1043,7 +1043,7 @@ gdb_eval_agent_expr (struct regcache *regcache,
 	  {
 	    int regnum = arg;
 
-	    switch (register_size (regnum))
+	    switch (register_size (regcache->tdesc, regnum))
 	      {
 	      case 8:
 		collect_register (regcache, regnum, cnv.u64.bytes);

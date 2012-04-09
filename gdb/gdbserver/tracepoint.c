@@ -28,6 +28,7 @@
 #include <stdint.h>
 #endif
 #include "ax.h"
+#include "tdesc.h"
 
 /* This file is built for both GDBserver, and the in-process
    agent (IPA), a shared library that includes a tracing agent that is
@@ -4478,6 +4479,11 @@ collect_data_at_step (struct tracepoint_hit_ctx *ctx,
 
 #endif
 
+#ifdef IN_PROCESS_AGENT
+/* The target description used by the IPA.  */
+struct target_desc *ipa_tdesc;
+#endif
+
 static struct regcache *
 get_context_regcache (struct tracepoint_hit_ctx *ctx)
 {
@@ -4490,7 +4496,7 @@ get_context_regcache (struct tracepoint_hit_ctx *ctx)
       if (!fctx->regcache_initted)
 	{
 	  fctx->regcache_initted = 1;
-	  init_register_cache (&fctx->regcache, fctx->regspace);
+	  init_register_cache (&fctx->regcache, ipa_tdesc, fctx->regspace);
 	  supply_regblock (&fctx->regcache, NULL);
 	  supply_fast_tracepoint_registers (&fctx->regcache, fctx->regs);
 	}
@@ -4505,7 +4511,7 @@ get_context_regcache (struct tracepoint_hit_ctx *ctx)
       if (!sctx->regcache_initted)
 	{
 	  sctx->regcache_initted = 1;
-	  init_register_cache (&sctx->regcache, sctx->regspace);
+	  init_register_cache (&sctx->regcache, ipa_tdesc, sctx->regspace);
 	  supply_regblock (&sctx->regcache, NULL);
 	  /* Pass down the tracepoint address, because REGS doesn't
 	     include the PC, but we know what it must have been.  */
@@ -4560,13 +4566,15 @@ do_action_at_tracepoint (struct tracepoint_hit_ctx *ctx,
 	unsigned char *regspace;
 	struct regcache tregcache;
 	struct regcache *context_regcache;
-
+	int regcache_size;
 
 	trace_debug ("Want to collect registers");
 
+	context_regcache = get_context_regcache (ctx);
+	regcache_size = register_cache_size (context_regcache->tdesc);
+
 	/* Collect all registers for now.  */
-	regspace = add_traceframe_block (tframe,
-					 1 + register_cache_size ());
+	regspace = add_traceframe_block (tframe, 1 + regcache_size);
 	if (regspace == NULL)
 	  {
 	    trace_debug ("Trace buffer block allocation failed, skipping");
@@ -4575,11 +4583,10 @@ do_action_at_tracepoint (struct tracepoint_hit_ctx *ctx,
 	/* Identify a register block.  */
 	*regspace = 'R';
 
-	context_regcache = get_context_regcache (ctx);
-
 	/* Wrap the regblock in a register cache (in the stack, we
 	   don't want to malloc here).  */
-	init_register_cache (&tregcache, regspace + 1);
+	init_register_cache (&tregcache, context_regcache->tdesc,
+			     regspace + 1);
 
 	/* Copy the register data to the regblock.  */
 	regcache_cpy (&tregcache, context_regcache);
@@ -4887,7 +4894,7 @@ traceframe_walk_blocks (unsigned char *database, unsigned int datasize,
 	{
 	case 'R':
 	  /* Skip over the registers block.  */
-	  dataptr += register_cache_size ();
+	  dataptr += get_desc ()->registers_size;
 	  break;
 	case 'M':
 	  /* Skip over the memory block.  */
@@ -4982,12 +4989,13 @@ traceframe_get_pc (struct traceframe *tframe)
 {
   struct regcache regcache;
   unsigned char *dataptr;
+  struct target_desc *tdesc = get_desc ();
 
   dataptr = traceframe_find_regblock (tframe, -1);
   if (dataptr == NULL)
     return 0;
 
-  init_register_cache (&regcache, dataptr);
+  init_register_cache (&regcache, tdesc, dataptr);
   return regcache_read_pc (&regcache);
 }
 
@@ -5538,7 +5546,7 @@ gdb_collect (struct tracepoint *tpoint, unsigned char *regs)
   ctx.regcache_initted = 0;
   /* Wrap the regblock in a register cache (in the stack, we don't
      want to malloc here).  */
-  ctx.regspace = alloca (register_cache_size ());
+  ctx.regspace = alloca (ipa_tdesc->registers_size);
   if (ctx.regspace == NULL)
     {
       trace_debug ("Trace buffer block allocation failed, skipping");
@@ -6348,7 +6356,7 @@ gdb_probe (const struct marker *mdata, void *probe_private,
 
   /* Wrap the regblock in a register cache (in the stack, we don't
      want to malloc here).  */
-  ctx.regspace = alloca (register_cache_size ());
+  ctx.regspace = alloca (ipa_tdesc->registers_size);
   if (ctx.regspace == NULL)
     {
       trace_debug ("Trace buffer block allocation failed, skipping");

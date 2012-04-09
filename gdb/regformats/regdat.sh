@@ -121,6 +121,7 @@ exec > new-$2
 copyright $1
 echo '#include "server.h"'
 echo '#include "regdef.h"'
+echo '#include "tdesc.h"'
 echo
 offset=0
 i=0
@@ -180,13 +181,22 @@ fi
 echo
 
 cat <<EOF
+struct target_desc *tdesc_${name};
+
 void
-init_registers_${name} ()
+init_registers_${name} (void)
 {
-    set_register_cache (regs_${name},
-			sizeof (regs_${name}) / sizeof (regs_${name}[0]));
-    gdbserver_expedite_regs = expedite_regs_${name};
-    gdbserver_xmltarget = xmltarget_${name};
+  static struct target_desc tdesc_${name}_s;
+  struct target_desc *result = &tdesc_${name}_s;
+
+  result->reg_defs = regs_${name};
+  result->num_registers = sizeof (regs_${name}) / sizeof (regs_${name}[0]);
+  result->expedite_regs = expedite_regs_${name};
+  result->xmltarget = xmltarget_${name};
+
+  init_target_desc (result);
+
+  tdesc_${name} = result;
 }
 EOF
 

@@ -19,6 +19,7 @@
 #include "server.h"
 #include "terminal.h"
 #include "target.h"
+#include "tdesc.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_SYS_IOCTL_H
@@ -1269,7 +1270,7 @@ outreg (struct regcache *regcache, int regno, char *buf)
   *buf++ = tohex (regno & 0xf);
   *buf++ = ':';
   collect_register_as_string (regcache, regno, buf);
-  buf += 2 * register_size (regno);
+  buf += 2 * register_size (regcache->tdesc, regno);
   *buf++ = ';';
 
   return buf;
@@ -1327,11 +1328,11 @@ prepare_resume_reply (char *buf, ptid_t ptid,
 	sprintf (buf, "T%02x", status->value.sig);
 	buf += strlen (buf);
 
-	regp = gdbserver_expedite_regs;
-
 	saved_inferior = current_inferior;
 
 	current_inferior = find_thread_ptid (ptid);
+
+	regp = get_desc ()->expedite_regs;
 
 	regcache = get_thread_regcache (current_inferior, 1);
 
@@ -1357,7 +1358,7 @@ prepare_resume_reply (char *buf, ptid_t ptid,
 
 	while (*regp)
 	  {
-	    buf = outreg (regcache, find_regno (*regp), buf);
+	    buf = outreg (regcache, find_regno (regcache->tdesc, *regp), buf);
 	    regp ++;
 	  }
 	*buf = '\0';
