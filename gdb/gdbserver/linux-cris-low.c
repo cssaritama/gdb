@@ -23,6 +23,7 @@
 
 /* Defined in auto-generated file reg-cris.c.  */
 void init_registers_cris (void);
+extern struct target_desc *tdesc_cris;
 
 /* CRISv10 */
 #define cris_num_regs 32
@@ -108,11 +109,33 @@ cris_reinsert_addr (void)
   return pc;
 }
 
+static void
+cris_arch_setup (void)
+{
+  current_process ()->tdesc = tdesc_cris;
+}
+
+static struct usrregs_info cris_usrregs_info =
+  {
+    cris_num_regs,
+    cris_regmap,
+  };
+
+static struct regs_info regs_info =
+  {
+    NULL, /* regset_bitmap */
+    &cris_usrregs_info,
+  };
+
+static const struct regs_info *
+cris_regs_info (void)
+{
+  return &regs_info;
+}
+
 struct linux_target_ops the_low_target = {
-  init_registers_cris,
-  cris_num_regs,
-  cris_regmap,
-  NULL,
+  cris_arch_setup,
+  cris_regs_info,
   cris_cannot_fetch_register,
   cris_cannot_store_register,
   NULL, /* fetch_register */
@@ -128,3 +151,9 @@ struct linux_target_ops the_low_target = {
   0,
   0,
 };
+
+void
+initialize_low_arch (void)
+{
+  init_registers_cris ();
+}
