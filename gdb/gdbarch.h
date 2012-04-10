@@ -56,17 +56,23 @@ struct syscall;
 struct agent_expr;
 struct axs_value;
 
-/* The architecture associated with the connection to the target.
- 
-   The architecture vector provides some information that is really
-   a property of the target: The layout of certain packets, for instance;
-   or the solib_ops vector.  Etc.  To differentiate architecture accesses
-   to per-target properties from per-thread/per-frame/per-objfile properties,
-   accesses to per-target properties should be made through target_gdbarch.
+/* The architecture associated with the connection to the
+   target or inferior.
 
-   Eventually, when support for multiple targets is implemented in
-   GDB, this global should be made target-specific.  */
-extern struct gdbarch *target_gdbarch;
+   The architecture vector provides some information that is really a
+   property of the target/inferior: The layout of certain RSP packets,
+   for instance; or the solib_ops vector.  Etc.  To differentiate
+   architecture accesses to per-target properties from
+   per-thread/per-frame/per-objfile properties, accesses to per-target
+   properties should be made through target_gdbarch.  */
+
+extern struct gdbarch *get_target_gdbarch (void);
+#define target_gdbarch get_target_gdbarch ()
+
+/* The initial, default architecture.  It uses host values (for want of a better
+   choice).  */
+extern struct gdbarch startup_gdbarch;
+
 
 
 /* The following are pre-initialized by GDBARCH.  */
