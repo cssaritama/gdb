@@ -800,6 +800,7 @@ proc mi_run_cmd_full {use_mi_command args} {
     global mi_gdb_prompt use_gdb_stub
     global thread_selected_re
     global library_loaded_re
+    global async
 
     if {$use_mi_command} {
 	set run_prefix "220-exec-"
@@ -847,9 +848,21 @@ proc mi_run_cmd_full {use_mi_command args} {
 	return 0
     }
 
+    # In async mode, we don't get a prompt back until GDB is really
+    # ready to accept further input, unlike sync mode, where we
+    # actually get multiple prompts (one after the command, and one
+    # after the next *stop".  This only affects CLI commands, because
+    # MI commands are always async (and therefore GDB is already ready
+    # for input afterwards, and therefore prints a prompt).
+    if {!$use_mi_command && $async} {
+        set prompt_re ""
+    } else {
+        set prompt_re "$mi_gdb_prompt"
+    }
+
     send_gdb "${run_prefix}run $args\n"
     gdb_expect {
-	-re "${run_match}\\^running\r\n(\\*running,thread-id=\"\[^\"\]+\"\r\n|=thread-created,id=\"1\",group-id=\"\[0-9\]+\"\r\n)*(${library_loaded_re})*(${thread_selected_re})?${mi_gdb_prompt}" {
+	-re "${run_match}\\^running\r\n(\\*running,thread-id=\"\[^\"\]+\"\r\n|=thread-created,id=\"1\",group-id=\"\[0-9\]+\"\r\n)*(${library_loaded_re})*(${thread_selected_re})?${prompt_re}" {
 	}
 	-re "\\^error,msg=\"The target does not support running in non-stop mode.\"" {
 	    unsupported "Non-stop mode not supported"
@@ -1591,6 +1604,47 @@ proc mi_tbreak {location} {
     mi_gdb_test "-break-insert -t $location" \
         {\^done,bkpt=.*} \
         "run to $location (set breakpoint)"    
+}
+
+# Send a CLI resuming command (next, step, etc.), expect "^running",
+# but don't expect the prompt, leaving that to the caller.  This is
+# necessary because in async mode, we don't get a prompt back until
+# GDB is really ready to accept further input, unlike sync mode, where
+# we actually get multiple prompts (one after the command, and one
+# after the next *stop".
+proc mi_send_cli_resuming_command { command test } {
+    global mi_gdb_prompt
+
+    send_gdb "${command}\n"
+    gdb_expect {
+	-re "\\^running.*\\*running,thread-id=\"all\"" {
+	    pass $test
+	}
+        -re "\\^error,msg=.*" {
+            fail "$test (MI error)"
+            return -1
+        }
+        -re ".*${mi_gdb_prompt}" {
+            fail "$test (failed to resume)"
+	    return -1
+        }
+	timeout {
+	    fail "$test (timeout)"
+	}
+    }
+}
+
+# Consume an MI prompt.
+proc mi_eat_prompt { test } {
+    global mi_gdb_prompt
+
+    gdb_expect {
+        -re "$mi_gdb_prompt" {
+        }
+	timeout {
+	    fail "$test"
+	}
+    }
 }
 
 # Send COMMAND that must be a command that resumes

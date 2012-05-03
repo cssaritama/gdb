@@ -352,7 +352,18 @@ interp_exec (struct interp *interp, const char *command_str)
 {
   if (interp->procs->exec_proc != NULL)
     {
-      return interp->procs->exec_proc (interp->data, command_str);
+      struct cleanup *old_chain;
+      struct gdb_exception ex;
+
+      /* Run sync execution commands to completion.  */
+      old_chain = make_cleanup_restore_integer (&interpreter_async);
+      interpreter_async = 0;
+
+      ex = interp->procs->exec_proc (interp->data, command_str);
+
+      do_cleanups (old_chain);
+
+      return ex;
     }
   return exception_none;
 }

@@ -48,29 +48,31 @@ mi_delete_breakpoints
 mi_gdb_reinitialize_dir $srcdir/$subdir
 mi_gdb_load ${binfile}
 
-# mi_gdb_test cannot be used for asynchronous commands because there are
-# two prompts involved and this can lead to a race condition.
-
 proc linux_async_tests {} {
-    global mi_gdb_prompt
     global hex
 
     set line_main_head     [gdb_get_line_number "main ("]
     set line_main_body     [expr $line_main_head + 2]
     set line_main_next     [expr $line_main_head + 3]
 
-    mi_send_resuming_command_raw "start" "start: send"
-    mi_expect_stop "breakpoint-hit" "main" "" ".*basics.c" "$line_main_body" { "" "disp=\"del\"" } "start: stop"
+    mi_send_cli_resuming_command "start" "start: send"
+    mi_expect_stop "breakpoint-hit" "main" "" ".*basics.c" \
+	"$line_main_body" { "" "disp=\"del\"" } "start: stop"
+    mi_eat_prompt "start: eat prompt"
 
-    mi_send_resuming_command_raw "next" "CLI next: send"
-    mi_expect_stop "end-stepping-range" "main" "" ".*basics.c" "$line_main_next" "" "CLI next: stop"
+    mi_send_cli_resuming_command "next" "CLI next: send"
+    mi_expect_stop "" "main" "" ".*basics.c" \
+	"$line_main_next" "" "CLI next: stop"
+    mi_eat_prompt "CLI next: eat prompt"
 
     mi_gdb_test "-exec-interrupt" \
 	"" \
 	""
 
-    mi_send_resuming_command_raw "start" "restart: send"
-    mi_expect_stop "breakpoint-hit" "main" "" ".*basics.c" "$line_main_body" { "" "disp=\"del\"" } "restart: stop"
+    mi_send_cli_resuming_command "start" "restart: send"
+    mi_expect_stop "breakpoint-hit" "main" "" ".*basics.c" \
+	"$line_main_body" { "" "disp=\"del\"" } "restart: stop"
+    mi_eat_prompt "restart: eat prompt"
 }
 
 
