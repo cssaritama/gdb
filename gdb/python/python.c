@@ -39,6 +39,7 @@
 static const char python_excp_none[] = "none";
 static const char python_excp_full[] = "full";
 static const char python_excp_message[] = "message";
+static const char python_excp_off[] = "off";
 
 /* "set python print-stack" choices.  */
 static const char *const python_excp_enums[] =
@@ -46,6 +47,7 @@ static const char *const python_excp_enums[] =
     python_excp_none,
     python_excp_full,
     python_excp_message,
+    python_excp_off,
     NULL
   };
 
@@ -1122,6 +1124,8 @@ gdbpy_breakpoint_has_py_cond (struct breakpoint_object *bp_obj)
 
 static struct cmd_list_element *user_set_python_list;
 static struct cmd_list_element *user_show_python_list;
+static struct cmd_list_element *maintenance_show_python_cmdlist;
+static struct cmd_list_element *maintenance_set_python_cmdlist;
 
 /* Function for use by 'set python' prefix command.  */
 
@@ -1193,6 +1197,28 @@ message == an error message without a stack will be printed."),
 			NULL, NULL,
 			&user_set_python_list,
 			&user_show_python_list);
+
+  /* Add set/show python print-stack.  */
+  add_prefix_cmd ("python", no_class, user_show_python,
+		  _("Prefix command for python preference settings."),
+		  &maintenance_show_python_cmdlist, "maint show python ", 0,
+		  &maintenance_show_cmdlist);
+
+  add_prefix_cmd ("python", no_class, user_set_python,
+		  _("Prefix command for python preference settings."),
+		  &maintenance_set_python_cmdlist, "maint set python ", 0,
+		  &maintenance_set_cmdlist);
+
+  add_setshow_enum_cmd ("print-stack", no_class, python_excp_enums,
+			&gdbpy_should_print_stack, _("\
+Set mode for Python stack dump on error."), _("\
+Show the mode of Python stack printing on error."), _("\
+none  == no stack or message will be printed.\n\
+full == a message and a stack will be printed.\n\
+message == an error message without a stack will be printed."),
+			NULL, NULL,
+			&maintenance_set_python_cmdlist,
+			&maintenance_show_python_cmdlist);
 
 #ifdef HAVE_PYTHON
 #ifdef WITH_PYTHON_PATH
