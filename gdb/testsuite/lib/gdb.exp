@@ -1653,6 +1653,7 @@ proc supports_process_record {} {
 # Return 1 if target supports reverse debugging, otherwise return 0.
 
 proc supports_reverse {} {
+    return 0
 
     if [target_info exists gdb,can_reverse] {
 	return [target_info gdb,can_reverse]
