@@ -1416,6 +1416,7 @@ extern void insert_single_step_breakpoint (struct gdbarch *,
 extern int single_step_breakpoints_inserted (void);
 extern void remove_single_step_breakpoints (void);
 extern void cancel_single_step_breakpoints (void);
+extern int single_step_breakpoints_inserted_here (CORE_ADDR pc);
 
 /* Manage manual breakpoints, separate from the normal chain of
    breakpoints.  These functions are used in murky target-specific
