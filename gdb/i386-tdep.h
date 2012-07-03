@@ -382,6 +382,8 @@ extern void i386_svr4_init_abi (struct gdbarch_info, struct gdbarch *);
 extern int i386_process_record (struct gdbarch *gdbarch,
                                 struct regcache *regcache, CORE_ADDR addr);
 
+int i386_software_single_step (struct frame_info *frame);
+
 
 
 /* Functions and variables exported from i386bsd-tdep.c.  */
