@@ -4254,6 +4254,7 @@ handle_inferior_event (struct execution_control_state *ecs)
       if (ecs->event_thread->suspend.stop_signal == GDB_SIGNAL_TRAP)
 	ecs->random_signal
 	  = !(bpstat_explains_signal (ecs->event_thread->control.stop_bpstat)
+	      || 1
 	      || stopped_by_watchpoint
 	      || ecs->event_thread->control.trap_expected
 	      || (ecs->event_thread->control.step_range_end
