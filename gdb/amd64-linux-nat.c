@@ -946,7 +946,7 @@ siginfo_from_compat_x32_siginfo (siginfo_t *to,
 static int
 amd64_linux_siginfo_fixup (siginfo_t *native, gdb_byte *inf, int direction)
 {
-  struct gdbarch *gdbarch = get_frame_arch (get_current_frame ());
+  struct gdbarch *gdbarch = get_regcache_arch (get_current_regcache ());
 
   /* Is the inferior 32-bit?  If so, then do fixup the siginfo
      object.  */

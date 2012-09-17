@@ -3299,10 +3299,43 @@ handle_inferior_event (struct execution_control_state *ecs)
       if (breakpoint_inserted_here_p (get_regcache_aspace (regcache),
 				      regcache_read_pc (regcache)))
 	{
-	  if (debug_infrun)
-	    fprintf_unfiltered (gdb_stdlog,
-				"infrun: Treating signal as SIGTRAP\n");
-	  ecs->ws.value.sig = GDB_SIGNAL_TRAP;
+	  /* sigall.exp shows an example of single-stepping over a
+	     kill(SIGILL) syscall, resulting in GDB confusing the
+	     SIGILL for a single-step breakpoint.  We can't disable
+	     this signal translation unconditionally, as it would
+	     indeed break call dummy breakpoints on the stack that
+	     trigger SIGSEGV.  To distinguish the cases, we check if
+	     it was the kernel that sent the signal.  If so, then we
+	     treat the signal as breakpoint.  Otherwise, we treat it
+	     as spurious signal.  */
+	  struct regcache *regcache = get_thread_regcache (ecs->ptid);
+	  struct gdbarch *gdbarch = get_regcache_arch (regcache);
+	  int from_kernel = 1;
+
+	  if (gdbarch_get_siginfo_type_p (gdbarch))
+	    {
+	      struct type *type = gdbarch_get_siginfo_type (gdbarch);
+	      size_t len = TYPE_LENGTH (type);
+	      siginfo_t *siginfo = NULL;
+	      struct cleanup *back_to;
+
+	      siginfo = xmalloc (len);
+	      back_to = make_cleanup (xfree, siginfo);
+
+	      if (target_read (&current_target, TARGET_OBJECT_SIGNAL_INFO, NULL,
+			       (void *) siginfo, 0, len) == len)
+		from_kernel = siginfo->si_code > 0;
+
+	      do_cleanups (back_to);
+	    }
+
+	  if (from_kernel)
+	    {
+	      if (debug_infrun)
+		fprintf_unfiltered (gdb_stdlog,
+				    "infrun: Treating signal as SIGTRAP\n");
+	      ecs->ws.value.sig = GDB_SIGNAL_TRAP;
+	    }
 	}
     }
 
