@@ -5052,7 +5052,8 @@ bpstat_check_watchpoint (bpstat bs)
 static void
 bpstat_check_breakpoint_conditions (bpstat bs, ptid_t ptid)
 {
-  int thread_id = pid_to_thread_id (ptid);
+  int thread_id = -1;
+  int task_id = 0;
   const struct bp_location *bl;
   struct breakpoint *b;
 
@@ -5061,6 +5062,11 @@ bpstat_check_breakpoint_conditions (bpstat bs, ptid_t ptid)
   gdb_assert (bl != NULL);
   b = bs->breakpoint_at;
   gdb_assert (b != NULL);
+
+  if (b->thread != -1)
+    thread_id = pid_to_thread_id (ptid);
+  else if (b->task != 0)
+    task_id = ada_get_task_number (ptid);
 
   /* Even if the target evaluated the condition on its end and notified GDB, we
      need to do so again since GDB does not know if we stopped due to a
@@ -5162,6 +5168,10 @@ bpstat_check_breakpoint_conditions (bpstat bs, ptid_t ptid)
 	{
 	  bs->stop = 0;
 	}
+      else if (b->task != 0 && b->task != task_id)
+        {
+	  bs->stop = 0;
+        }
       else if (b->ignore_count > 0)
 	{
 	  b->ignore_count--;
