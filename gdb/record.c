@@ -1171,6 +1171,10 @@ record_wait_cleanups (void *ignore)
    one instruction at a time (forward or backward), and determines 
    where to stop.  */
 
+void
+adjust_pc_after_break (struct thread_info *event_thread,
+		       struct target_waitstatus *ws);
+
 static ptid_t
 record_wait_1 (struct target_ops *ops,
 	       ptid_t ptid, struct target_waitstatus *status,
@@ -1208,73 +1212,34 @@ record_wait_1 (struct target_ops *ops,
       else
 	{
 	  /* This is not a single step.  */
-	  ptid_t ret;
-	  struct gdbarch *gdbarch = target_thread_architecture (inferior_ptid);
+	  ptid_t event_ptid;
+	  //struct gdbarch *gdbarch = target_thread_architecture (inferior_ptid);
 
 	  while (1)
 	    {
 	      int currently_stepping (struct thread_info *tp);
 	      struct thread_info *event_thread;
 
-	      ret = record_beneath_to_wait (record_beneath_to_wait_ops,
-					    ptid, status, options);
+	      event_ptid = record_beneath_to_wait (record_beneath_to_wait_ops,
+						   ptid, status, options);
 	      if (status->kind == TARGET_WAITKIND_IGNORE)
 		{
 		  if (record_debug)
 		    fprintf_unfiltered (gdb_stdlog,
 					"Process record: record_wait "
 					"target beneath not done yet\n");
-		  return ret;
+		  return event_ptid;
 		}
 
 	      registers_changed ();
 
-	      /* Is this a SIGTRAP?  */
-	      if (status->kind == TARGET_WAITKIND_STOPPED
-		  && status->value.sig == GDB_SIGNAL_TRAP)
-		{
-		  struct regcache *regcache;
-		  struct gdbarch *gdbarch;
-		  struct address_space *aspace;
-		  CORE_ADDR breakpoint_pc;
-		  CORE_ADDR tmp_pc;
+	      event_thread = find_thread_ptid (event_ptid);
+	      /* If it's a new thread, add it to the thread database.  */
+	      if (event_thread == NULL)
+		event_thread = add_thread (event_ptid);
 
-		  regcache = get_thread_regcache (ret);
-		  gdbarch = get_regcache_arch (regcache);
-		  aspace = get_regcache_aspace (regcache);
+	      adjust_pc_after_break (event_thread, status);
 
-		  /* Find the location where (if we've hit a
-		     breakpoint) the breakpoint would be.  */
-		  breakpoint_pc = regcache_read_pc (regcache)
-		    - gdbarch_decr_pc_after_break (gdbarch);
-
-		  if (software_breakpoint_inserted_here_p (aspace, breakpoint_pc)
-		      || (non_stop && moribund_breakpoint_here_p (aspace, breakpoint_pc)))
-		    {
-		      struct thread_info *event_thread = find_thread_ptid (ret);
-
-		      if (!currently_stepping (event_thread)
-			  || event_thread->prev_pc == breakpoint_pc)
-			{
-			  if (record_debug)
-			    fprintf_unfiltered (gdb_stdlog,
-						"Process record: record_wait "
-						"decr_pc_after_break adjustment. New PC = %s\n",
-						paddress (gdbarch, breakpoint_pc));
-			  regcache_write_pc (regcache, breakpoint_pc);
-			}
-		    }
-		  else
-		    {
-		      if (record_debug)
-			fprintf_unfiltered (gdb_stdlog,
-					    "Process record: record_wait "
-					    "!decr_pc_after_break adjustment. No breakpoint at %s.\n",
-					    paddress (gdbarch, breakpoint_pc));
-		    }
-		}
-
-	      event_thread = find_thread_ptid (ret);
 	      if (!currently_stepping (event_thread)
 		  && single_step_breakpoints_inserted ())
 		{
@@ -1292,6 +1257,7 @@ record_wait_1 (struct target_ops *ops,
 		  struct regcache *regcache;
 		  struct address_space *aspace;
 		  CORE_ADDR tmp_pc;
+		  struct gdbarch *gdbarch;
 
 		  /* Yes -- this is likely our single-step finishing,
 		     but check if there's any reason the core would be
@@ -1300,6 +1266,7 @@ record_wait_1 (struct target_ops *ops,
 		  regcache = get_current_regcache ();
 		  tmp_pc = regcache_read_pc (regcache);
 		  aspace = get_regcache_aspace (regcache);
+		  gdbarch = get_regcache_arch (regcache);
 
 		  if (target_stopped_by_watchpoint ())
 		    {
@@ -1373,7 +1340,7 @@ record_wait_1 (struct target_ops *ops,
 	      break;
 	    }
 
-	  return ret;
+	  return event_ptid;
 	}
     }
   else

@@ -2899,8 +2899,13 @@ context_switch (ptid_t ptid)
   switch_to_thread (ptid);
 }
 
-static void
-adjust_pc_after_break (struct execution_control_state *ecs)
+void
+adjust_pc_after_break (struct thread_info *event_thread,
+		       struct target_waitstatus *ws);
+
+void
+adjust_pc_after_break (struct thread_info *event_thread,
+		       struct target_waitstatus *ws)
 {
   struct regcache *regcache;
   struct gdbarch *gdbarch;
@@ -2928,10 +2933,10 @@ adjust_pc_after_break (struct execution_control_state *ecs)
      target with both of these set in GDB history, and it seems unlikely to be
      correct, so gdbarch_have_nonsteppable_watchpoint is not checked here.  */
 
-  if (ecs->ws.kind != TARGET_WAITKIND_STOPPED)
+  if (ws->kind != TARGET_WAITKIND_STOPPED)
     return;
 
-  if (ecs->ws.value.sig != GDB_SIGNAL_TRAP)
+  if (ws->value.sig != GDB_SIGNAL_TRAP)
     return;
 
   /* In reverse execution, when a breakpoint is hit, the instruction
@@ -2965,7 +2970,7 @@ adjust_pc_after_break (struct execution_control_state *ecs)
 
   /* If this target does not decrement the PC after breakpoints, then
      we have nothing to do.  */
-  regcache = get_thread_regcache (ecs->ptid);
+  regcache = get_thread_regcache (event_thread->ptid);
   gdbarch = get_regcache_arch (regcache);
   if (gdbarch_decr_pc_after_break (gdbarch) == 0)
     return;
@@ -3013,9 +3018,9 @@ adjust_pc_after_break (struct execution_control_state *ecs)
 
       if (singlestep_breakpoints_inserted_p
 	  || single_step_breakpoints_inserted_here (breakpoint_pc)
-	  || !ptid_equal (ecs->ptid, inferior_ptid)
-	  || !currently_stepping (ecs->event_thread)
-	  || ecs->event_thread->prev_pc == breakpoint_pc)
+	  || !ptid_equal (event_thread->ptid, inferior_ptid)
+	  || !currently_stepping (event_thread)
+	  || event_thread->prev_pc == breakpoint_pc)
 	regcache_write_pc (regcache, breakpoint_pc);
 
       if (RECORD_IS_USED)
@@ -3223,8 +3228,7 @@ handle_inferior_event (struct execution_control_state *ecs)
 	ecs->event_thread = add_thread (ecs->ptid);
     }
 
-  /* Dependent on valid ECS->EVENT_THREAD.  */
-  adjust_pc_after_break (ecs);
+  adjust_pc_after_break (ecs->event_thread, &ecs->ws);
 
   /* Dependent on the current PC value modified by adjust_pc_after_break.  */
   reinit_frame_cache ();
