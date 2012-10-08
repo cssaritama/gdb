@@ -4610,6 +4610,8 @@ process_event_stop_test:
 	  break;
 
 	case BPSTAT_WHAT_KEEP_CHECKING:
+	  if (debug_infrun)
+	    fprintf_unfiltered (gdb_stdlog, "infrun: BPSTAT_WHAT_KEEP_CHECKING\n");
 	  break;
 	}
     }
@@ -4637,6 +4639,10 @@ process_event_stop_test:
 	       && ecs->event_thread->suspend.stop_signal != GDB_SIGNAL_TRAP)
 	      || ecs->event_thread->stepping_over_breakpoint)
 	    {
+	      if (debug_infrun)
+		fprintf_unfiltered (gdb_stdlog,
+				    "infrun: not switching back to "
+				    "stepped thread yet; need step-over first\n");
 	      keep_going (ecs);
 	      return;
 	    }

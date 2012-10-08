@@ -14981,6 +14981,11 @@ remove_single_step_breakpoints_thread (struct thread_info *thread)
       if (*bp == NULL)
 	break;
 
+      if (debug_infrun)
+	fprintf_unfiltered (gdb_stdlog, "removing single-step breakpoint at: %s\n",
+			    paddress ((*bp)->loc->gdbarch,
+				      (*bp)->loc->address));
+
       delete_breakpoint (*bp);
       *bp = NULL;
     }
