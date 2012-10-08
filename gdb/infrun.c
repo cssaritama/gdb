@@ -4692,9 +4692,42 @@ process_event_stop_test:
 	  ecs->ptid = tp->ptid;
 	  context_switch (ecs->ptid);
 
-	  /* Keep checking.  The stepped thread might have already
-	     reached its destination, but not have reported it yet.
-	     If we just kept going, we could end up overstepping.  */
+	  /* Keep checking.
+
+	     If the PC of the thread we were trying to single-step has
+	     changed, pretend we saw that thread trap.  The stepped
+	     thread might have already reached its destination, but
+	     not have reported it yet.
+
+	     If the PC has changed, then the thread we were trying to
+	     single-step has trapped or been signalled, but the event
+	     has not been reported to GDB yet.  If we just kept going,
+	     we could end up overstepping.
+
+	     There might be some cases where this loses signal
+	     information, if a signal has arrived at exactly the same
+	     time that the PC changed, but this is the best we can do
+	     with the information available.  Perhaps we should
+	     arrange to report all events for all threads when they
+	     stop, or to re-poll the remote looking for this
+	     particular thread (i.e. temporarily enable
+	     schedlock).  */
+
+	  frame = get_current_frame ();
+	  gdbarch = get_frame_arch (frame);
+
+	  if (gdbarch_software_single_step_p (gdbarch))
+	    {
+	      insert_single_step_breakpoint (frame, get_frame_pc (frame));
+	      insert_single_step_breakpoints ();
+	      resume (0, GDB_SIGNAL_0);
+	      prepare_to_wait (ecs);
+	    }
+	  else
+	    {
+	      keep_going  (ecs);
+	    }
+	  return;
 	}
     }
 
