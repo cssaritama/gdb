@@ -7066,8 +7066,6 @@ init_raw_breakpoint (struct breakpoint *b, struct gdbarch *gdbarch,
      program space.  */
   if (bptype != bp_breakpoint && bptype != bp_hardware_breakpoint)
     b->pspace = sal.pspace;
-
-  annotate_breakpoints_changed ();
 }
 
 /* set_raw_breakpoint is a low level routine for allocating and
@@ -8392,8 +8390,12 @@ install_breakpoint (int internal, struct breakpoint *b, int update_gll)
 {
   add_to_breakpoint_chain (b);
   set_breakpoint_number (internal, b);
+
   if (!internal)
-    mention (b);
+    {
+      annotate_breakpoints_changed ();
+      mention (b);
+    }
   observer_notify_breakpoint_created (b);
 
   if (update_gll)
