@@ -1240,8 +1240,7 @@ record_wait_1 (struct target_ops *ops,
 
 	      adjust_pc_after_break (event_thread, status);
 
-	      if (!currently_stepping (event_thread)
-		  && single_step_breakpoints_inserted ())
+	      if (single_step_breakpoints_inserted ())
 		{
 		  if (record_debug)
 		    fprintf_unfiltered (gdb_stdlog,
