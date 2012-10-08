@@ -313,14 +313,13 @@ i386_cleanup_dregs (void)
    when maint_show_dr is non-zero.  To set that up, type "maint
    show-debug-regs" at GDB's prompt.  */
 
+static void i386_show_drs (struct i386_debug_reg_state *state);
+
 static void
 i386_show_dr (struct i386_debug_reg_state *state,
 	      const char *func, CORE_ADDR addr,
 	      int len, enum target_hw_bp_type type)
 {
-  int addr_size = gdbarch_addr_bit (target_gdbarch) / 8;
-  int i;
-
   puts_unfiltered (func);
   if (addr || len)
     printf_unfiltered (" (addr=%lx, len=%d, type=%s)",
@@ -336,6 +335,16 @@ i386_show_dr (struct i386_debug_reg_state *state,
 				   here.  */
 				: "??unknown??"))));
   puts_unfiltered (":\n");
+
+  i386_show_drs (state);
+}
+
+static void
+i386_show_drs (struct i386_debug_reg_state *state)
+{
+  int i;
+  int addr_size = gdbarch_addr_bit (target_gdbarch) / 8;
+
   printf_unfiltered ("\tCONTROL (DR7): %s          STATUS (DR6): %s\n",
 		     phex (state->dr_control_mirror, 8),
 		     phex (state->dr_status_mirror, 8));
