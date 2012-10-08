@@ -1989,6 +1989,7 @@ in which its expression is valid.\n"),
     select_frame (frame_find_by_id (saved_frame_id));
 }
 
+static int breakpoints_removed = 0;
 
 /* Returns 1 iff breakpoint location should be
    inserted in the inferior.  We don't differentiate the type of BL's owner
@@ -2008,6 +2009,9 @@ should_be_inserted (struct bp_location *bl)
     return 0;
 
   if (user_breakpoint_p (bl->owner) && bl->pspace->executing_startup)
+    return 0;
+
+  if (bl->owner->type != bp_single_step && breakpoints_removed)
     return 0;
 
   /* This is set for example, when we're attached to the parent of a
@@ -2721,6 +2725,8 @@ insert_breakpoints (void)
 {
   struct breakpoint *bpt;
 
+  breakpoints_removed = 0;
+
   ALL_BREAKPOINTS (bpt)
     if (is_hardware_watchpoint (bpt))
       {
@@ -2947,6 +2953,8 @@ remove_breakpoints (void)
 {
   struct bp_location *bl, **blp_tmp;
   int val = 0;
+
+  breakpoints_removed = 1;
 
   ALL_BP_LOCATIONS (bl, blp_tmp)
   {
