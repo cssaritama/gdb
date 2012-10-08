@@ -1420,6 +1420,7 @@ extern void remove_single_step_breakpoints_thread_at_next_stop
 extern void cancel_single_step_breakpoints (void);
 extern int single_step_breakpoints_inserted_here_p (struct address_space *,
 						    CORE_ADDR pc);
+extern int single_step_breakpoints_inserted_p (struct thread_info *);
 
 /* Manage manual breakpoints, separate from the normal chain of
    breakpoints.  These functions are used in murky target-specific

@@ -3904,6 +3904,12 @@ single_step_breakpoints_inserted_here_p (struct address_space *aspace,
   return 0;
 }
 
+int
+single_step_breakpoints_inserted_p (struct thread_info *thread)
+{
+  return thread->control.single_step_breakpoints[0] != NULL;
+}
+
 /* Return true if there's a moribund breakpoint at PC.  */
 
 int
