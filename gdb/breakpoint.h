@@ -44,12 +44,6 @@ struct linespec_sals;
 
 
 /* Type of breakpoint.  */
-/* FIXME In the future, we should fold all other breakpoint-like
-   things into here.  This includes:
-
-   * single-step (for machines where we have to simulate single
-   stepping) (probably, though perhaps it is better for it to look as
-   much as possible like a single-step to wait_for_inferior).  */
 
 enum bptype
   {
@@ -177,6 +171,10 @@ enum bptype
        deleted now and the breakpoint moved to the target function entry
        point.  */
     bp_gnu_ifunc_resolver_return,
+
+    /* Used to implement single-stepping on targets that can't do it
+       themselves.  */
+    bp_single_step,
   };
 
 /* States of enablement of breakpoint.  */
@@ -1411,8 +1409,7 @@ extern void delete_command (char *arg, int from_tty);
 
 /* Manage a software single step breakpoint (or two).  Insert may be
    called twice before remove is called.  */
-extern void insert_single_step_breakpoint (struct gdbarch *,
-					   struct address_space *, 
+extern void insert_single_step_breakpoint (struct frame_info *,
 					   CORE_ADDR);
 extern int single_step_breakpoints_inserted (void);
 extern void remove_single_step_breakpoints (void);

@@ -230,11 +230,6 @@ static void catch_exception_command_1 (enum exception_event_kind ex_event,
 
 static void tcatch_command (char *arg, int from_tty);
 
-static void detach_single_step_breakpoints (void);
-
-static int single_step_breakpoint_inserted_here_p (struct address_space *,
-						   CORE_ADDR pc);
-
 static void free_bp_location (struct bp_location *loc);
 static void incref_bp_location (struct bp_location *loc);
 static void decref_bp_location (struct bp_location **loc);
@@ -3542,9 +3537,6 @@ detach_breakpoints (ptid_t ptid)
       val |= remove_breakpoint_1 (bl, mark_inserted);
   }
 
-  /* Detach single-step breakpoints as well.  */
-  detach_single_step_breakpoints ();
-
   do_cleanups (old_chain);
   return val;
 }
@@ -3782,6 +3774,13 @@ breakpoint_init_inferior (enum inf_context context)
 	delete_breakpoint (b);
 	break;
 
+      case bp_single_step:
+
+	/* Also remove single-step breakpoints.  */
+
+	delete_breakpoint (b);
+	break;
+
       case bp_watchpoint:
       case bp_hardware_watchpoint:
       case bp_read_watchpoint:
@@ -3875,10 +3874,8 @@ moribund_breakpoint_here_p (struct address_space *aspace, CORE_ADDR pc)
   return 0;
 }
 
-/* Returns non-zero if there's a breakpoint inserted at PC, which is
-   inserted using regular breakpoint_chain / bp_location array
-   mechanism.  This does not check for single-step breakpoints, which
-   are inserted and removed using direct target manipulation.  */
+/* Returns non-zero if there's a breakpoint other than a single-step
+   breakpoint inserted at PC.  */
 
 int
 regular_breakpoint_inserted_here_p (struct address_space *aspace, 
@@ -3890,6 +3887,9 @@ regular_breakpoint_inserted_here_p (struct address_space *aspace,
     {
       if (bl->loc_type != bp_loc_software_breakpoint
 	  && bl->loc_type != bp_loc_hardware_breakpoint)
+	continue;
+
+      if (bl->owner->type == bp_single_step)
 	continue;
 
       if (bl->inserted
@@ -3912,12 +3912,25 @@ regular_breakpoint_inserted_here_p (struct address_space *aspace,
 int
 breakpoint_inserted_here_p (struct address_space *aspace, CORE_ADDR pc)
 {
-  if (regular_breakpoint_inserted_here_p (aspace, pc))
-    return 1;
+  struct bp_location *bl, **blp_tmp;
 
-  if (single_step_breakpoint_inserted_here_p (aspace, pc))
-    return 1;
+  ALL_BP_LOCATIONS (bl, blp_tmp)
+    {
+      if (bl->loc_type != bp_loc_software_breakpoint
+	  && bl->loc_type != bp_loc_hardware_breakpoint)
+	continue;
 
+      if (bl->inserted
+	  && breakpoint_location_address_match (bl, aspace, pc))
+	{
+	  if (overlay_debugging 
+	      && section_is_overlay (bl->section)
+	      && !section_is_mapped (bl->section))
+	    continue;		/* unmapped overlay -- can't be a match */
+	  else
+	    return 1;
+	}
+    }
   return 0;
 }
 
@@ -3947,10 +3960,6 @@ software_breakpoint_inserted_here_p (struct address_space *aspace,
 	    return 1;
 	}
     }
-
-  /* Also check for software single-step breakpoints.  */
-  if (single_step_breakpoint_inserted_here_p (aspace, pc))
-    return 1;
 
   return 0;
 }
@@ -5749,6 +5758,7 @@ bptype_string (enum bptype type)
     {bp_exception, "exception"},
     {bp_exception_resume, "exception resume"},
     {bp_step_resume, "step resume"},
+    {bp_single_step, "single step"},
     {bp_hp_step_resume, "high-priority step resume"},
     {bp_watchpoint_scope, "watchpoint scope"},
     {bp_call_dummy, "call dummy"},
@@ -5909,6 +5919,7 @@ print_one_breakpoint_location (struct breakpoint *b,
       case bp_jit_event:
       case bp_gnu_ifunc_resolver:
       case bp_gnu_ifunc_resolver_return:
+      case bp_single_step:
 	if (opts.addressprint)
 	  {
 	    annotate_field (4);
@@ -6779,6 +6790,7 @@ init_bp_location (struct bp_location *loc, const struct bp_location_ops *ops,
     case bp_gnu_ifunc_resolver:
     case bp_gnu_ifunc_resolver_return:
     case bp_dprintf:
+    case bp_single_step:
       loc->loc_type = bp_loc_software_breakpoint;
       mark_breakpoint_location_modified (loc);
       break;
@@ -14791,42 +14803,38 @@ deprecated_remove_raw_breakpoint (struct gdbarch *gdbarch,
 
 /* One (or perhaps two) breakpoints used for software single
    stepping.  */
-
-struct single_step_breakpoint
-{
-  struct bp_target_info *bkpt;
-  struct gdbarch *gdbarch;
-};
-static struct single_step_breakpoint single_step_breakpoints[2];
+static struct breakpoint *single_step_breakpoints[2];
 
 /* Create and insert a breakpoint for software single step.  */
 
 void
-insert_single_step_breakpoint (struct gdbarch *gdbarch,
-			       struct address_space *aspace, 
-			       CORE_ADDR next_pc)
+insert_single_step_breakpoint (struct frame_info *frame, CORE_ADDR next_pc)
 {
-  struct single_step_breakpoint *bpt_p;
+  struct gdbarch *gdbarch = get_frame_arch (frame);
+  struct breakpoint **ss_bp = NULL;
+  struct symtab_and_line sal;
+  int i;
 
-  if (single_step_breakpoints[0].bkpt == NULL)
-    bpt_p = &single_step_breakpoints[0];
-  else
-    {
-      gdb_assert (single_step_breakpoints[1].bkpt == NULL);
-      bpt_p = &single_step_breakpoints[1];
-    }
+  for (i = 0; i < 2; i++)
+    if (single_step_breakpoints[i] == NULL)
+      {
+	ss_bp = &single_step_breakpoints[i];
+	break;
+      }
 
-  bpt_p->gdbarch = gdbarch;
+  gdb_assert (ss_bp != NULL);
 
-  /* NOTE drow/2006-04-11: A future improvement to this function would
-     be to only create the breakpoints once, and actually put them on
-     the breakpoint chain.  That would let us use set_raw_breakpoint.
-     We could adjust the addresses each time they were needed.  Doing
-     this requires corresponding changes elsewhere where single step
-     breakpoints are handled, however.  So, for now, we use this.  */
+  init_sal (&sal);
+  sal.pc = next_pc;
+  sal.pspace = get_frame_program_space (frame);
 
-  bpt_p->bkpt = deprecated_insert_raw_breakpoint (gdbarch, aspace, next_pc);
-  if (bpt_p->bkpt == NULL)
+  if (debug_infrun)
+    fprintf_unfiltered (gdb_stdlog,
+			"infrun: inserting single-step breakpoint at %s\n",
+			paddress (gdbarch, sal.pc));
+
+  *ss_bp = set_momentary_breakpoint (gdbarch, sal, null_frame_id, bp_single_step);
+  if (*ss_bp == NULL)
     error (_("Could not insert single-step breakpoint at %s"),
 	     paddress (gdbarch, next_pc));
 }
@@ -14841,10 +14849,10 @@ single_step_breakpoints_inserted (void)
 
   for (i = 0; i < 2; i++)
     {
-      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
-
-      if (bp->bkpt != NULL)
+      if (single_step_breakpoints[i] != NULL)
 	return 1;
+      else
+	break;
     }
 
   return 0;
@@ -14857,9 +14865,9 @@ single_step_breakpoints_inserted_here (CORE_ADDR pc)
 
   for (i = 0; i < 2; i++)
     {
-      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
+      struct breakpoint *bp = single_step_breakpoints[i];
 
-      if (bp->bkpt != NULL && bp->bkpt->placed_address == pc)
+      if (bp != NULL && bp->loc->target_info.placed_address == pc)
 	return 1;
     }
 
@@ -14873,27 +14881,27 @@ remove_single_step_breakpoints (void)
 {
   int i;
 
-  gdb_assert (single_step_breakpoints[0].bkpt != NULL);
+  gdb_assert (single_step_breakpoints[0] != NULL);
 
   for (i = 0; i < 2; i++)
     {
-      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
+      struct breakpoint **bp = &single_step_breakpoints[i];
 
-      if (bp->bkpt != NULL)
+      if (*bp != NULL)
 	{
-	  /* See insert_single_step_breakpoint for more about this
-	     deprecated call.  */
-	  deprecated_remove_raw_breakpoint (bp->gdbarch, bp->bkpt);
-	  bp->gdbarch = NULL;
-	  bp->bkpt = NULL;
+	  delete_breakpoint (*bp);
+	  *bp = NULL;
 	}
+      else
+	break;
     }
 }
 
-/* Delete software single step breakpoints without removing them from
-   the inferior.  This is intended to be used if the inferior's address
-   space where they were inserted is already gone, e.g. after exit or
-   exec.  */
+/* Cancel out software single step breakpoints without removing them
+   from the inferior.  This is intended to be used if the inferior's
+   address space where they were inserted is already gone, e.g. after
+   exit or exec.  The breakpoints themselves are deleted in
+   breakpoint_init_inferior, or in breakpoint_follow_exec.  */
 
 void
 cancel_single_step_breakpoints (void)
@@ -14901,55 +14909,7 @@ cancel_single_step_breakpoints (void)
   int i;
 
   for (i = 0; i < 2; i++)
-    {
-      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
-
-      if (bp->bkpt != NULL)
-	{
-	  xfree (bp->bkpt);
-	  bp->bkpt = NULL;
-	  bp->gdbarch = NULL;
-	}
-    }
-}
-
-/* Detach software single-step breakpoints from INFERIOR_PTID without
-   removing them.  */
-
-static void
-detach_single_step_breakpoints (void)
-{
-  int i;
-
-  for (i = 0; i < 2; i++)
-    {
-      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
-
-      if (bp->bkpt != NULL)
-	target_remove_breakpoint (bp->gdbarch, bp->bkpt);
-    }
-}
-
-/* Check whether a software single-step breakpoint is inserted at
-   PC.  */
-
-static int
-single_step_breakpoint_inserted_here_p (struct address_space *aspace, 
-					CORE_ADDR pc)
-{
-  int i;
-
-  for (i = 0; i < 2; i++)
-    {
-      struct bp_target_info *bp_tgt = single_step_breakpoints[i].bkpt;
-      if (bp_tgt
-	  && breakpoint_address_match (bp_tgt->placed_address_space,
-				       bp_tgt->placed_address,
-				       aspace, pc))
-	return 1;
-    }
-
-  return 0;
+    single_step_breakpoints[i] = NULL;
 }
 
 /* Returns 0 if 'bp' is NOT a syscall catchpoint,
