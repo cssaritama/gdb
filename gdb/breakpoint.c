@@ -8677,9 +8677,10 @@ enable_breakpoints_after_startup (void)
    at address specified by SAL.
    Restrict it to frame FRAME if FRAME is nonzero.  */
 
-struct breakpoint *
-set_momentary_breakpoint (struct gdbarch *gdbarch, struct symtab_and_line sal,
-			  struct frame_id frame_id, enum bptype type)
+static struct breakpoint *
+set_momentary_breakpoint_1 (struct gdbarch *gdbarch, struct symtab_and_line sal,
+			    struct frame_id frame_id, enum bptype type,
+			    int may_insert)
 {
   struct breakpoint *b;
 
@@ -8698,9 +8699,33 @@ set_momentary_breakpoint (struct gdbarch *gdbarch, struct symtab_and_line sal,
   if (in_thread_list (inferior_ptid))
     b->thread = pid_to_thread_id (inferior_ptid);
 
-  update_global_location_list_nothrow (1);
+  update_global_location_list_nothrow (may_insert);
 
   return b;
+}
+
+/* Set a breakpoint that will evaporate an end of command
+   at address specified by SAL.
+   Restrict it to frame FRAME if FRAME is nonzero.  */
+
+struct breakpoint *
+set_momentary_breakpoint (struct gdbarch *gdbarch, struct symtab_and_line sal,
+			  struct frame_id frame_id, enum bptype type)
+{
+  return set_momentary_breakpoint_1 (gdbarch, sal, frame_id, type,
+				     1);
+}
+
+/* Set a breakpoint that will evaporate an end of command
+   at address specified by SAL.
+   Restrict it to frame FRAME if FRAME is nonzero.  */
+
+static struct breakpoint *
+set_momentary_breakpoint_no_insert (struct gdbarch *gdbarch, struct symtab_and_line sal,
+				    struct frame_id frame_id, enum bptype type)
+{
+  return set_momentary_breakpoint_1 (gdbarch, sal, frame_id, type,
+				     0);
 }
 
 /* Make a momentary breakpoint based on the master breakpoint ORIG.
@@ -14898,7 +14923,8 @@ insert_single_step_breakpoint (struct frame_info *frame, CORE_ADDR next_pc)
 			"infrun: inserting single-step breakpoint at %s\n",
 			paddress (gdbarch, sal.pc));
 
-  *ss_bp = set_momentary_breakpoint (gdbarch, sal, null_frame_id, bp_single_step);
+  *ss_bp = set_momentary_breakpoint_no_insert (gdbarch, sal,
+					       null_frame_id, bp_single_step);
   if (*ss_bp == NULL)
     error (_("Could not insert single-step breakpoint at %s"),
 	     paddress (gdbarch, next_pc));
