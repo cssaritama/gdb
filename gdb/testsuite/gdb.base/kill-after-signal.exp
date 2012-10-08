@@ -16,7 +16,7 @@
 set testfile "kill-after-signal"
 
 if { ![can_single_step_to_signal_handler] } {
-    untested ${testfile}.exp
+    untested "target can't step to signal handler"
     return
 }
 
