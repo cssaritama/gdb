@@ -242,9 +242,7 @@ static void update_global_location_list_nothrow (int);
 
 static int is_hardware_watchpoint (const struct breakpoint *bpt);
 
-typedef int (*insert_bp_locations_filter) (struct bp_location *loc);
-
-static void insert_breakpoint_locations (insert_bp_locations_filter filter);
+static void insert_breakpoint_locations (void);
 
 static int syscall_catchpoint_p (struct breakpoint *b);
 
@@ -2735,7 +2733,7 @@ insert_breakpoints (void)
      always_inserted_mode is not enabled.  Explicitly insert them
      now.  */
   if (!breakpoints_always_inserted_mode ())
-    insert_breakpoint_locations (NULL);
+    insert_breakpoint_locations ();
 }
 
 /* Invoke CALLBACK for each of bp_location.  */
@@ -2815,7 +2813,7 @@ update_inserted_breakpoint_locations (void)
 /* Used when starting or continuing the program.  */
 
 static void
-insert_breakpoint_locations (insert_bp_locations_filter filter)
+insert_breakpoint_locations (void)
 {
   struct breakpoint *bpt;
   struct bp_location *bl, **blp_tmp;
@@ -2847,9 +2845,6 @@ insert_breakpoint_locations (insert_bp_locations_filter filter)
 	  && !valid_thread_id (bl->owner->thread))
 	continue;
 
-      if (filter != NULL && !filter (bl))
-	continue;
-
       switch_to_program_space_and_thread (bl->pspace);
 
       /* For targets that support global breakpoints, there's no need
@@ -2876,9 +2871,6 @@ insert_breakpoint_locations (insert_bp_locations_filter filter)
     {
       int some_failed = 0;
       struct bp_location *loc;
-
-      if (filter != NULL && !filter (bl))
-	continue;
 
       if (!is_hardware_watchpoint (bpt))
 	continue;
@@ -2924,18 +2916,6 @@ You may have requested too many hardware breakpoints/watchpoints.\n");
     }
 
   do_cleanups (cleanups);
-}
-
-static int
-filter_single_step_locations (struct bp_location *loc)
-{
-  return (loc->owner->type == bp_single_step);
-}
-
-void
-insert_single_step_breakpoints (void)
-{
-  insert_breakpoint_locations (filter_single_step_locations);
 }
 
 /* Used when the program stops.
@@ -8728,7 +8708,10 @@ set_momentary_breakpoint (struct gdbarch *gdbarch, struct symtab_and_line sal,
    at address specified by SAL.
    Restrict it to frame FRAME if FRAME is nonzero.  */
 
-static struct breakpoint *
+struct breakpoint *
+set_momentary_breakpoint_no_insert (struct gdbarch *gdbarch, struct symtab_and_line sal,
+				    struct frame_id frame_id, enum bptype type);
+struct breakpoint *
 set_momentary_breakpoint_no_insert (struct gdbarch *gdbarch, struct symtab_and_line sal,
 				    struct frame_id frame_id, enum bptype type)
 {
@@ -12650,7 +12633,7 @@ update_global_location_list (int should_insert)
 	  || (gdbarch_has_global_breakpoints (target_gdbarch))))
     {
       if (should_insert)
-	insert_breakpoint_locations (NULL);
+	insert_breakpoint_locations ();
       else
 	{
 	  /* Though should_insert is false, we may need to update conditions
@@ -14945,11 +14928,16 @@ insert_single_step_breakpoint (struct frame_info *frame, CORE_ADDR next_pc)
 			"infrun: inserting single-step breakpoint at %s\n",
 			paddress (gdbarch, sal.pc));
 
-  *ss_bp = set_momentary_breakpoint_no_insert (gdbarch, sal,
-					       null_frame_id, bp_single_step);
+  *ss_bp = set_momentary_breakpoint (gdbarch, sal,
+				     null_frame_id, bp_single_step);
   if (*ss_bp == NULL)
     error (_("Could not insert single-step breakpoint at %s"),
 	     paddress (gdbarch, next_pc));
+  /* update_global_location_list does not insert breakpoints when
+     always_inserted_mode is not enabled.  Explicitly insert them
+     now.  */
+  if (!breakpoints_always_inserted_mode ())
+    insert_breakpoint_locations ();
 }
 
 /* Check if the breakpoints used for software single stepping
