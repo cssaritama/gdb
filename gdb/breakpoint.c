@@ -5775,7 +5775,6 @@ bptype_string (enum bptype type)
     {bp_exception, "exception"},
     {bp_exception_resume, "exception resume"},
     {bp_step_resume, "step resume"},
-    {bp_single_step, "single step"},
     {bp_hp_step_resume, "high-priority step resume"},
     {bp_watchpoint_scope, "watchpoint scope"},
     {bp_call_dummy, "call dummy"},
@@ -5794,6 +5793,7 @@ bptype_string (enum bptype type)
     {bp_jit_event, "jit events"},
     {bp_gnu_ifunc_resolver, "STT_GNU_IFUNC resolver"},
     {bp_gnu_ifunc_resolver_return, "STT_GNU_IFUNC resolver return"},
+    {bp_single_step, "single step"},
   };
 
   if (((int) type >= (sizeof (bptypes) / sizeof (bptypes[0])))
