@@ -2911,6 +2911,9 @@ amd64_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 				      i386_stap_is_single_operand);
   set_gdbarch_stap_parse_special_token (gdbarch,
 					i386_stap_parse_special_token);
+
+  /* Single stepping.  */
+  set_gdbarch_software_single_step (gdbarch, i386_software_single_step);
 }
 
 
