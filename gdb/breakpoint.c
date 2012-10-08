@@ -14752,7 +14752,7 @@ invalidate_bp_value_on_memory_change (CORE_ADDR addr, ssize_t len,
    breakpoint chain instead; this function should be eliminated
    someday.  */
 
-void *
+struct bp_target_info *
 deprecated_insert_raw_breakpoint (struct gdbarch *gdbarch,
 				  struct address_space *aspace, CORE_ADDR pc)
 {
@@ -14777,7 +14777,8 @@ deprecated_insert_raw_breakpoint (struct gdbarch *gdbarch,
    deprecated_insert_raw_breakpoint.  */
 
 int
-deprecated_remove_raw_breakpoint (struct gdbarch *gdbarch, void *bp)
+deprecated_remove_raw_breakpoint (struct gdbarch *gdbarch,
+				  struct bp_target_info *bp)
 {
   struct bp_target_info *bp_tgt = bp;
   int ret;
@@ -14791,7 +14792,7 @@ deprecated_remove_raw_breakpoint (struct gdbarch *gdbarch, void *bp)
 /* One (or perhaps two) breakpoints used for software single
    stepping.  */
 
-static void *single_step_breakpoints[2];
+static struct bp_target_info *single_step_breakpoints[2];
 static struct gdbarch *single_step_gdbarch[2];
 
 /* Create and insert a breakpoint for software single step.  */
@@ -14801,7 +14802,7 @@ insert_single_step_breakpoint (struct gdbarch *gdbarch,
 			       struct address_space *aspace, 
 			       CORE_ADDR next_pc)
 {
-  void **bpt_p;
+  struct bp_target_info **bpt_p;
 
   if (single_step_breakpoints[0] == NULL)
     {

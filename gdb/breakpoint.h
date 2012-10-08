@@ -1422,10 +1422,12 @@ extern int single_step_breakpoints_inserted_here (CORE_ADDR pc);
 /* Manage manual breakpoints, separate from the normal chain of
    breakpoints.  These functions are used in murky target-specific
    ways.  Please do not add more uses!  */
-extern void *deprecated_insert_raw_breakpoint (struct gdbarch *,
-					       struct address_space *, 
-					       CORE_ADDR);
-extern int deprecated_remove_raw_breakpoint (struct gdbarch *, void *);
+extern struct bp_target_info *
+  deprecated_insert_raw_breakpoint (struct gdbarch *,
+				    struct address_space *,
+				    CORE_ADDR);
+extern int deprecated_remove_raw_breakpoint (struct gdbarch *,
+					     struct bp_target_info *);
 
 /* Check if any hardware watchpoints have triggered, according to the
    target.  */
