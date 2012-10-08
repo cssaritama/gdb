@@ -1412,6 +1412,7 @@ extern void delete_command (char *arg, int from_tty);
 extern void insert_single_step_breakpoint (struct frame_info *,
 					   CORE_ADDR);
 extern int single_step_breakpoints_inserted (void);
+extern void insert_single_step_breakpoints (void);
 extern void remove_single_step_breakpoints (void);
 extern void cancel_single_step_breakpoints (void);
 extern int single_step_breakpoints_inserted_here (CORE_ADDR pc);

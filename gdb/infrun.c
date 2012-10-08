@@ -1650,6 +1650,9 @@ maybe_software_singlestep (struct gdbarch *gdbarch, CORE_ADDR pc)
       && gdbarch_software_single_step_p (gdbarch)
       && gdbarch_software_single_step (gdbarch, get_current_frame ()))
     {
+      if (!breakpoints_always_inserted_mode ())
+	insert_single_step_breakpoints ();
+
       hw_step = 0;
       /* Do not pull these breakpoints until after a `wait' in
 	 `wait_for_inferior'.  */
