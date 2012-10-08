@@ -129,6 +129,8 @@ struct execution_control_state
 
 static void remove_single_step_breakpoints (struct execution_control_state *ecs);
 
+static int maybe_software_singlestep (struct gdbarch *gdbarch, CORE_ADDR pc);
+
 /* When set, stop the 'step' command if we enter a function which has
    no line number information.  The normal behavior is that we step
    over such function.  */
@@ -1516,8 +1518,6 @@ displaced_step_fixup (struct execution_control_state *ecs, int success)
       struct gdbarch *gdbarch;
       CORE_ADDR actual_pc;
       struct address_space *aspace;
-      struct thread_info *tp;
-      int step;
 
       head = displaced->step_request_queue;
       ptid = head->ptid;
@@ -1526,17 +1526,13 @@ displaced_step_fixup (struct execution_control_state *ecs, int success)
 
       context_switch (ptid);
 
-      tp = inferior_thread ();
       regcache = get_thread_regcache (ptid);
       gdbarch = get_regcache_arch (regcache);
       actual_pc = regcache_read_pc (regcache);
       aspace = get_regcache_aspace (regcache);
 
       /* Go back to what we were trying to do.  */
-      step = currently_stepping (tp);
-
-      if ((step && gdbarch_software_single_step_p (gdbarch))
-	  ||  breakpoint_here_p (aspace, actual_pc))
+      if (breakpoint_here_p (aspace, actual_pc))
 	{
 	  if (debug_displaced)
 	    fprintf_unfiltered (gdb_stdlog,
@@ -1567,16 +1563,25 @@ displaced_step_fixup (struct execution_control_state *ecs, int success)
 	}
       else
 	{
+	  int step, hw_step;
+	  struct thread_info *tp = inferior_thread ();
+
 	  /* The breakpoint we were sitting under has since been
 	     removed.  */
 	  tp->control.trap_expected = 0;
 
+	  /* Go back to what we were trying to do.  */
+	  step = currently_stepping (tp);
+	  hw_step = step;
+	  if (step)
+	    hw_step = maybe_software_singlestep (gdbarch, actual_pc);
+
 	  if (debug_displaced)
 	    fprintf_unfiltered (gdb_stdlog,
-				"displaced: breakpoint is gone: %s, step(%d)\n",
-				target_pid_to_str (tp->ptid), step);
+				"displaced: breakpoint is gone: %s, step(%d), hw_step(%d)\n",
+				target_pid_to_str (tp->ptid), step, hw_step);
 
-	  target_resume (ptid, step, GDB_SIGNAL_0);
+	  target_resume (ptid, hw_step, GDB_SIGNAL_0);
 	  tp->suspend.stop_signal = GDB_SIGNAL_0;
 
 	  /* This request was discarded.  See if there's any other

@@ -14924,13 +14924,32 @@ remove_single_step_breakpoints_thread (struct thread_info *thread)
     {
       struct breakpoint **bp = &single_step_breakpoints[i];
 
-      if (*bp != NULL)
-	{
-	  delete_breakpoint (*bp);
-	  *bp = NULL;
-	}
-      else
+      if (*bp == NULL)
 	break;
+
+      delete_breakpoint (*bp);
+      *bp = NULL;
+    }
+}
+
+/* Remove and delete any breakpoints used for software single step.  */
+
+void
+remove_single_step_breakpoints_thread_at_next_stop (struct thread_info *thread)
+{
+  struct breakpoint **single_step_breakpoints
+    = thread->control.single_step_breakpoints;
+  int i;
+
+  for (i = 0; i < 2; i++)
+    {
+      struct breakpoint **bp = &single_step_breakpoints[i];
+
+      if (*bp == NULL)
+	break;
+
+      (*bp)->disposition = disp_del_at_next_stop;
+      *bp = NULL;
     }
 }
 
