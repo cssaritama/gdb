@@ -15052,7 +15052,7 @@ insert_single_step_breakpoint (struct frame_info *frame, CORE_ADDR next_pc)
   struct symtab_and_line sal;
   int i;
 
-  for (i = 0; i < 2; i++)
+  for (i = 0; i < SINGLE_STEP_BREAKPOINTS_MAX; i++)
     if (single_step_breakpoints[i] == NULL)
       {
 	ss_bp = &single_step_breakpoints[i];
@@ -15086,7 +15086,7 @@ single_step_breakpoints_inserted (void)
     = inferior_thread ()->control.single_step_breakpoints;
   int i;
 
-  for (i = 0; i < 2; i++)
+  for (i = 0; i < SINGLE_STEP_BREAKPOINTS_MAX; i++)
     {
       if (single_step_breakpoints[i] != NULL)
 	return 1;
@@ -15106,7 +15106,7 @@ remove_single_step_breakpoints_thread (struct thread_info *thread)
     = thread->control.single_step_breakpoints;
   int i;
 
-  for (i = 0; i < 2; i++)
+  for (i = 0; i < SINGLE_STEP_BREAKPOINTS_MAX; i++)
     {
       struct breakpoint **bp = &single_step_breakpoints[i];
 
@@ -15127,7 +15127,7 @@ remove_single_step_breakpoints_thread_at_next_stop (struct thread_info *thread)
     = thread->control.single_step_breakpoints;
   int i;
 
-  for (i = 0; i < 2; i++)
+  for (i = 0; i < SINGLE_STEP_BREAKPOINTS_MAX; i++)
     {
       struct breakpoint **bp = &single_step_breakpoints[i];
 
@@ -15151,7 +15151,7 @@ cancel_single_step_breakpoints (void)
   int i;
 
 #if 0
-  for (i = 0; i < 2; i++)
+  for (i = 0; i < SINGLE_STEP_BREAKPOINTS_MAX; i++)
     single_step_breakpoints[i] = NULL;
   TODO
 #endif
