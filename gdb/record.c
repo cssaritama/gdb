@@ -1240,13 +1240,13 @@ record_wait_1 (struct target_ops *ops,
 
 	      adjust_pc_after_break (event_thread, status);
 
-	      if (single_step_breakpoints_inserted ())
+	      if (event_thread->control.single_step_breakpoints[0] != NULL)
 		{
 		  if (record_debug)
 		    fprintf_unfiltered (gdb_stdlog,
 					"Process record: record_wait "
 					"removing single-step breakpoints\n");
-		  remove_single_step_breakpoints ();
+		  remove_single_step_breakpoints_thread (event_thread);
 		}
 
 	      /* Is this a SIGTRAP?  */

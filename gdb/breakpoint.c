@@ -5552,6 +5552,10 @@ bpstat_what (bpstat bs_head)
 	  this_action = BPSTAT_WHAT_STOP_SILENT;
 	  break;
 
+	case bp_single_step:
+	  this_action = BPSTAT_WHAT_SINGLE;
+	  break;
+
 	default:
 	  internal_error (__FILE__, __LINE__,
 			  _("bpstat_what: unhandled bptype %d"), (int) bptype);
@@ -14855,7 +14859,8 @@ deprecated_remove_raw_breakpoint (struct gdbarch *gdbarch,
 void
 insert_single_step_breakpoint (struct frame_info *frame, CORE_ADDR next_pc)
 {
-  struct breakpoint *single_step_breakpoints = inferior_thread ()->single_step_breakpoints;
+  struct breakpoint **single_step_breakpoints
+    = inferior_thread ()->control.single_step_breakpoints;
   struct gdbarch *gdbarch = get_frame_arch (frame);
   struct breakpoint **ss_bp = NULL;
   struct symtab_and_line sal;
@@ -14891,7 +14896,8 @@ insert_single_step_breakpoint (struct frame_info *frame, CORE_ADDR next_pc)
 int
 single_step_breakpoints_inserted (void)
 {
-  struct breakpoint *single_step_breakpoints = inferior_thread ()->single_step_breakpoints;
+  struct breakpoint **single_step_breakpoints
+    = inferior_thread ()->control.single_step_breakpoints;
   int i;
 
   for (i = 0; i < 2; i++)
@@ -14908,11 +14914,11 @@ single_step_breakpoints_inserted (void)
 /* Remove and delete any breakpoints used for software single step.  */
 
 void
-remove_single_step_breakpoints (void)
+remove_single_step_breakpoints_thread (struct thread_info *thread)
 {
+  struct breakpoint **single_step_breakpoints
+    = thread->control.single_step_breakpoints;
   int i;
-
-  gdb_assert (single_step_breakpoints[0] != NULL);
 
   for (i = 0; i < 2; i++)
     {
@@ -14939,8 +14945,11 @@ cancel_single_step_breakpoints (void)
 {
   int i;
 
+#if 0
   for (i = 0; i < 2; i++)
     single_step_breakpoints[i] = NULL;
+  TODO
+#endif
 }
 
 /* Returns 0 if 'bp' is NOT a syscall catchpoint,

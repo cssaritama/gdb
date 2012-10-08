@@ -1413,7 +1413,7 @@ extern void insert_single_step_breakpoint (struct frame_info *,
 					   CORE_ADDR);
 extern int single_step_breakpoints_inserted (void);
 extern void insert_single_step_breakpoints (void);
-extern void remove_single_step_breakpoints (void);
+extern void remove_single_step_breakpoints_thread (struct thread_info *thread);
 extern void cancel_single_step_breakpoints (void);
 extern int single_step_breakpoints_inserted_here_p (struct address_space *,
 						    CORE_ADDR pc);
