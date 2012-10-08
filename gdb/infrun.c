@@ -4691,8 +4691,10 @@ process_event_stop_test:
 	  ecs->event_thread = tp;
 	  ecs->ptid = tp->ptid;
 	  context_switch (ecs->ptid);
-	  keep_going (ecs);
-	  return;
+
+	  /* Keep checking.  The stepped thread might have already
+	     reached its destination, but not have reported it yet.
+	     If we just kept going, we could end up overstepping.  */
 	}
     }
 
