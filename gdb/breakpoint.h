@@ -41,6 +41,8 @@ struct linespec_sals;
    architecture.  */
 
 #define	BREAKPOINT_MAX	16
+
+#define SINGLE_STEP_BREAKPOINTS_MAX 2
 
 
 /* Type of breakpoint.  */

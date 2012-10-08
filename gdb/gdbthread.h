@@ -49,7 +49,7 @@ struct thread_control_state
   /* Step-resume or longjmp-resume breakpoint.  */
   struct breakpoint *step_resume_breakpoint;
 
-  struct breakpoint *single_step_breakpoints[2];
+  struct breakpoint *single_step_breakpoints[SINGLE_STEP_BREAKPOINTS_MAX];
 
   /* Exception-resume breakpoint.  */
   struct breakpoint *exception_resume_breakpoint;

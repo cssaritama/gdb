@@ -6884,12 +6884,15 @@ save_infcall_control_state (void)
   struct infcall_control_state *inf_status = xmalloc (sizeof (*inf_status));
   struct thread_info *tp = inferior_thread ();
   struct inferior *inf = current_inferior ();
+  int i;
 
   inf_status->thread_control = tp->control;
   inf_status->inferior_control = inf->control;
 
   tp->control.step_resume_breakpoint = NULL;
   tp->control.exception_resume_breakpoint = NULL;
+  for (i = 0; i < SINGLE_STEP_BREAKPOINTS_MAX; i++)
+    tp->control.single_step_breakpoints[i] = NULL;
 
   /* Save original bpstat chain to INF_STATUS; replace it in TP with copy of
      chain.  If caller's caller is walking the chain, they'll be happier if we
