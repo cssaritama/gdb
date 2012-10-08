@@ -3876,6 +3876,34 @@ breakpoint_here_p (struct address_space *aspace, CORE_ADDR pc)
   return any_breakpoint_here ? ordinary_breakpoint_here : 0;
 }
 
+int
+single_step_breakpoints_inserted_here_p (struct address_space *aspace,
+					 CORE_ADDR pc)
+{
+  struct bp_location *bl, **blp_tmp;
+
+  ALL_BP_LOCATIONS (bl, blp_tmp)
+    {
+      if (bl->owner->type != bp_single_step)
+	continue;
+
+      /* ALL_BP_LOCATIONS bp_location has BL->OWNER always non-NULL.  */
+      if ((breakpoint_enabled (bl->owner)
+	   || bl->owner->enable_state == bp_permanent)
+	  && breakpoint_location_address_match (bl, aspace, pc))
+	{
+	  if (overlay_debugging
+	      && section_is_overlay (bl->section)
+	      && !section_is_mapped (bl->section))
+	    continue;		/* unmapped overlay -- can't be a match */
+	  else
+	    return 1;
+	}
+    }
+
+  return 0;
+}
+
 /* Return true if there's a moribund breakpoint at PC.  */
 
 int
@@ -14820,13 +14848,14 @@ deprecated_remove_raw_breakpoint (struct gdbarch *gdbarch,
 
 /* One (or perhaps two) breakpoints used for software single
    stepping.  */
-static struct breakpoint *single_step_breakpoints[2];
+//static struct breakpoint *single_step_breakpoints[2];
 
 /* Create and insert a breakpoint for software single step.  */
 
 void
 insert_single_step_breakpoint (struct frame_info *frame, CORE_ADDR next_pc)
 {
+  struct breakpoint *single_step_breakpoints = inferior_thread ()->single_step_breakpoints;
   struct gdbarch *gdbarch = get_frame_arch (frame);
   struct breakpoint **ss_bp = NULL;
   struct symtab_and_line sal;
@@ -14862,6 +14891,7 @@ insert_single_step_breakpoint (struct frame_info *frame, CORE_ADDR next_pc)
 int
 single_step_breakpoints_inserted (void)
 {
+  struct breakpoint *single_step_breakpoints = inferior_thread ()->single_step_breakpoints;
   int i;
 
   for (i = 0; i < 2; i++)
@@ -14870,22 +14900,6 @@ single_step_breakpoints_inserted (void)
 	return 1;
       else
 	break;
-    }
-
-  return 0;
-}
-
-int
-single_step_breakpoints_inserted_here (CORE_ADDR pc)
-{
-  int i;
-
-  for (i = 0; i < 2; i++)
-    {
-      struct breakpoint *bp = single_step_breakpoints[i];
-
-      if (bp != NULL && bp->loc->target_info.placed_address == pc)
-	return 1;
     }
 
   return 0;

@@ -953,10 +953,15 @@ follow_exec (ptid_t pid, char *execd_pathname)
      matically get reset there in the new process.).  */
 }
 
-/* Non-zero if we just simulating a single-step.  This is needed
+/* Non-zero if we're just simulating a single-step.  This is needed
    because we cannot remove the breakpoints in the inferior process
    until after the `wait' in `wait_for_inferior'.  */
-static int singlestep_breakpoints_inserted_p = 0;
+
+static int
+singlestep_breakpoints_inserted_p (void)
+{
+  return single_step_breakpoints_inserted ();
+}
 
 /* The thread we inserted single-step breakpoints for.  */
 static ptid_t singlestep_ptid;
@@ -3020,7 +3025,7 @@ adjust_pc_after_break (struct thread_info *event_thread,
 	 we also need to back up to the breakpoint address.  */
 
       if (singlestep_breakpoints_inserted_p
-	  || single_step_breakpoints_inserted_here (breakpoint_pc)
+	  || single_step_breakpoints_inserted_here (aspace, breakpoint_pc)
 	  || !ptid_equal (event_thread->ptid, inferior_ptid)
 	  || !currently_stepping (event_thread)
 	  || event_thread->prev_pc == breakpoint_pc)
@@ -3430,7 +3435,6 @@ handle_inferior_event (struct execution_control_state *ecs)
 
       gdb_flush (gdb_stdout);
       target_mourn_inferior ();
-      singlestep_breakpoints_inserted_p = 0;
       cancel_single_step_breakpoints ();
       stop_print_frame = 0;
       stop_stepping (ecs);
@@ -3519,11 +3523,10 @@ handle_inferior_event (struct execution_control_state *ecs)
 	  detach_breakpoints (ecs->ws.value.related_pid);
 	}
 
-      if (singlestep_breakpoints_inserted_p)
+      if (singlestep_breakpoints_inserted_p ())
 	{
 	  /* Pull the single step breakpoints out of the target.  */
 	  remove_single_step_breakpoints ();
-	  singlestep_breakpoints_inserted_p = 0;
 	}
 
       /* In case the event is caught by a catchpoint, remember that
@@ -3615,7 +3618,6 @@ handle_inferior_event (struct execution_control_state *ecs)
       if (!ptid_equal (ecs->ptid, inferior_ptid))
 	context_switch (ecs->ptid);
 
-      singlestep_breakpoints_inserted_p = 0;
       cancel_single_step_breakpoints ();
 
       stop_pc = regcache_read_pc (get_thread_regcache (ecs->ptid));
@@ -3685,12 +3687,11 @@ handle_inferior_event (struct execution_control_state *ecs)
       /* Reverse execution: target ran out of history info.  */
 
       /* Pull the single step breakpoints out of the target.  */
-      if (singlestep_breakpoints_inserted_p)
+      if (singlestep_breakpoints_inserted_p ())
 	{
 	  if (!ptid_equal (ecs->ptid, inferior_ptid))
 	    context_switch (ecs->ptid);
 	  remove_single_step_breakpoints ();
-	  singlestep_breakpoints_inserted_p = 0;
 	}
       stop_pc = regcache_read_pc (get_thread_regcache (ecs->ptid));
       print_no_history_reason ();
@@ -3747,7 +3748,7 @@ handle_inferior_event (struct execution_control_state *ecs)
 
   if (stepping_past_singlestep_breakpoint)
     {
-      gdb_assert (singlestep_breakpoints_inserted_p);
+      gdb_assert (singlestep_breakpoints_inserted_p ());
       gdb_assert (ptid_equal (singlestep_ptid, ecs->ptid));
       gdb_assert (!ptid_equal (singlestep_ptid, saved_singlestep_ptid));
 
@@ -3766,7 +3767,6 @@ handle_inferior_event (struct execution_control_state *ecs)
 	  if (!ptid_equal (ecs->ptid, inferior_ptid))
 	    context_switch (ecs->ptid);
 	  remove_single_step_breakpoints ();
-	  singlestep_breakpoints_inserted_p = 0;
 
 	  ecs->random_signal = 0;
 	  ecs->event_thread->control.trap_expected = 0;
@@ -3795,12 +3795,11 @@ handle_inferior_event (struct execution_control_state *ecs)
 				"infrun: handling deferred step\n");
 
 	  /* Pull the single step breakpoints out of the target.  */
-	  if (singlestep_breakpoints_inserted_p)
+	  if (singlestep_breakpoints_inserted_p ())
 	    {
 	      if (!ptid_equal (ecs->ptid, inferior_ptid))
 		context_switch (ecs->ptid);
 	      remove_single_step_breakpoints ();
-	      singlestep_breakpoints_inserted_p = 0;
 	    }
 
 	  ecs->event_thread->control.trap_expected = 0;
@@ -3837,7 +3836,7 @@ handle_inferior_event (struct execution_control_state *ecs)
 	  if (!breakpoint_thread_match (aspace, stop_pc, ecs->ptid))
 	    thread_hop_needed = 1;
 	}
-      else if (singlestep_breakpoints_inserted_p)
+      else if (singlestep_breakpoints_inserted_p ())
 	{
 	  /* We have not context switched yet, so this should be true
 	     no matter which thread hit the singlestep breakpoint.  */
@@ -3923,11 +3922,10 @@ handle_inferior_event (struct execution_control_state *ecs)
 	  /* Saw a breakpoint, but it was hit by the wrong thread.
 	     Just continue.  */
 
-	  if (singlestep_breakpoints_inserted_p)
+	  if (singlestep_breakpoints_inserted_p ())
 	    {
 	      /* Pull the single step breakpoints out of the target.  */
 	      remove_single_step_breakpoints ();
-	      singlestep_breakpoints_inserted_p = 0;
 	    }
 
 	  /* If the arch can displace step, don't remove the
@@ -3960,7 +3958,7 @@ handle_inferior_event (struct execution_control_state *ecs)
 	      return;
 	    }
 	}
-      else if (singlestep_breakpoints_inserted_p)
+      else if (singlestep_breakpoints_inserted_p ())
 	{
 	  ecs->random_signal = 0;
 	}

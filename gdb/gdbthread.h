@@ -49,6 +49,8 @@ struct thread_control_state
   /* Step-resume or longjmp-resume breakpoint.  */
   struct breakpoint *step_resume_breakpoint;
 
+  struct breakpoint *single_step_breakpoints[2];
+
   /* Exception-resume breakpoint.  */
   struct breakpoint *exception_resume_breakpoint;
 
