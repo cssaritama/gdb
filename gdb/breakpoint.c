@@ -2818,6 +2818,7 @@ insert_breakpoint_locations (insert_bp_locations_filter filter)
   int disabled_breaks = 0;
   int hw_breakpoint_error = 0;
   int hw_bp_error_explained_already = 0;
+  int watchpoint_failed = 0;
 
   struct ui_file *tmp_error_stream = mem_fileopen ();
   struct cleanup *cleanups = make_cleanup_ui_file_delete (tmp_error_stream);
@@ -2857,14 +2858,21 @@ insert_breakpoint_locations (insert_bp_locations_filter filter)
 				    &hw_breakpoint_error, &hw_bp_error_explained_already);
       if (val)
 	error_flag = val;
+
+      if (!bl->inserted && is_hardware_watchpoint (bl->owner))
+	watchpoint_failed = 1;
     }
 
   /* If we failed to insert all locations of a watchpoint, remove
      them, as half-inserted watchpoint is of limited use.  */
+  if (watchpoint_failed)
   ALL_BREAKPOINTS (bpt)  
     {
       int some_failed = 0;
       struct bp_location *loc;
+
+      if (filter != NULL && !filter (bl))
+	continue;
 
       if (!is_hardware_watchpoint (bpt))
 	continue;
