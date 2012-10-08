@@ -1209,11 +1209,13 @@ record_wait_1 (struct target_ops *ops,
 	{
 	  /* This is not a single step.  */
 	  ptid_t ret;
-	  CORE_ADDR tmp_pc;
 	  struct gdbarch *gdbarch = target_thread_architecture (inferior_ptid);
 
 	  while (1)
 	    {
+	      int currently_stepping (struct thread_info *tp);
+	      struct thread_info *event_thread;
+
 	      ret = record_beneath_to_wait (record_beneath_to_wait_ops,
 					    ptid, status, options);
 	      if (status->kind == TARGET_WAITKIND_IGNORE)
@@ -1225,11 +1227,63 @@ record_wait_1 (struct target_ops *ops,
 		  return ret;
 		}
 
-              if (single_step_breakpoints_inserted ())
-                remove_single_step_breakpoints ();
+	      registers_changed ();
 
-	      if (record_resume_step)
-		return ret;
+	      /* Is this a SIGTRAP?  */
+	      if (status->kind == TARGET_WAITKIND_STOPPED
+		  && status->value.sig == GDB_SIGNAL_TRAP)
+		{
+		  struct regcache *regcache;
+		  struct gdbarch *gdbarch;
+		  struct address_space *aspace;
+		  CORE_ADDR breakpoint_pc;
+		  CORE_ADDR tmp_pc;
+
+		  regcache = get_thread_regcache (ret);
+		  gdbarch = get_regcache_arch (regcache);
+		  aspace = get_regcache_aspace (regcache);
+
+		  /* Find the location where (if we've hit a
+		     breakpoint) the breakpoint would be.  */
+		  breakpoint_pc = regcache_read_pc (regcache)
+		    - gdbarch_decr_pc_after_break (gdbarch);
+
+		  if (software_breakpoint_inserted_here_p (aspace, breakpoint_pc)
+		      || (non_stop && moribund_breakpoint_here_p (aspace, breakpoint_pc)))
+		    {
+		      struct thread_info *event_thread = find_thread_ptid (ret);
+
+		      if (!currently_stepping (event_thread)
+			  || event_thread->prev_pc == breakpoint_pc)
+			{
+			  if (record_debug)
+			    fprintf_unfiltered (gdb_stdlog,
+						"Process record: record_wait "
+						"decr_pc_after_break adjustment. New PC = %s\n",
+						paddress (gdbarch, breakpoint_pc));
+			  regcache_write_pc (regcache, breakpoint_pc);
+			}
+		    }
+		  else
+		    {
+		      if (record_debug)
+			fprintf_unfiltered (gdb_stdlog,
+					    "Process record: record_wait "
+					    "!decr_pc_after_break adjustment. No breakpoint at %s.\n",
+					    paddress (gdbarch, breakpoint_pc));
+		    }
+		}
+
+	      event_thread = find_thread_ptid (ret);
+	      if (!currently_stepping (event_thread)
+		  && single_step_breakpoints_inserted ())
+		{
+		  if (record_debug)
+		    fprintf_unfiltered (gdb_stdlog,
+					"Process record: record_wait "
+					"removing single-step breakpoints\n");
+		  remove_single_step_breakpoints ();
+		}
 
 	      /* Is this a SIGTRAP?  */
 	      if (status->kind == TARGET_WAITKIND_STOPPED
@@ -1237,12 +1291,12 @@ record_wait_1 (struct target_ops *ops,
 		{
 		  struct regcache *regcache;
 		  struct address_space *aspace;
+		  CORE_ADDR tmp_pc;
 
 		  /* Yes -- this is likely our single-step finishing,
 		     but check if there's any reason the core would be
 		     interested in the event.  */
 
-		  registers_changed ();
 		  regcache = get_current_regcache ();
 		  tmp_pc = regcache_read_pc (regcache);
 		  aspace = get_regcache_aspace (regcache);
@@ -1257,6 +1311,10 @@ record_wait_1 (struct target_ops *ops,
 			 handle it.  */
 		      if (software_breakpoint_inserted_here_p (aspace, tmp_pc))
 			{
+			  /* If this is a software breakpoint,
+			     unadjust the PC, so that infrun sees a
+			     trap just like we hadn't adjusted it in
+			     the first place.  */
 			  struct gdbarch *gdbarch
 			    = get_regcache_arch (regcache);
 			  CORE_ADDR decr_pc_after_break
@@ -1286,6 +1344,12 @@ record_wait_1 (struct target_ops *ops,
 			{
 			  /* Try to insert the software single step breakpoint.
 			     If insert success, set step to 0.  */
+
+			  if (record_debug)
+			    fprintf_unfiltered (gdb_stdlog,
+						"Process record: record_wait "
+						"installing single-step breakpoints\n");
+
 			  set_executing (inferior_ptid, 0);
 			  reinit_frame_cache ();
 			  if (gdbarch_software_single_step (gdbarch,

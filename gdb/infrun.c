@@ -80,7 +80,7 @@ static int follow_fork (void);
 static void set_schedlock_func (char *args, int from_tty,
 				struct cmd_list_element *c);
 
-static int currently_stepping (struct thread_info *tp);
+int currently_stepping (struct thread_info *tp);
 
 static int currently_stepping_or_nexting_callback (struct thread_info *tp,
 						   void *data);
@@ -1807,7 +1807,7 @@ a command like `return' or `jump' to continue execution."));
   else if (step)
     step = maybe_software_singlestep (gdbarch, pc);
 
-  gdb_assert (!step);
+  gdb_assert (!step || execution_direction == EXEC_REVERSE);
 
   /* Currently, our software single-step implementation leads to different
      results than hardware single-stepping in one situation: when stepping
@@ -5237,7 +5237,7 @@ process_event_stop_test:
 
 /* Is thread TP in the middle of single-stepping?  */
 
-static int
+int
 currently_stepping (struct thread_info *tp)
 {
   return ((tp->control.step_range_end
