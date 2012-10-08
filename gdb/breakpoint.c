@@ -12103,6 +12103,20 @@ bp_location_compare (const void *ap, const void *bp)
   if (a_perm != b_perm)
     return (a_perm < b_perm) - (a_perm > b_perm);
 
+  /* Sort single-step breakpoints first.  We'll install these without
+     installing regular breakpoints at times.  It's just easier if
+     these appear first on the list, and we don't have worry about
+     them ever being duplicates of a breakpoint that is not meant to
+     be installed at a particular time (e.g., when stepping over a
+     breakpoint).  */
+  if (a->owner->type != b->owner->type)
+    {
+      if (a->owner->type == bp_single_step)
+	return -1;
+      else if (b->owner->type == bp_single_step)
+	return 1;
+    }
+
   /* Make the internal GDB representation stable across GDB runs
      where A and B memory inside GDB can differ.  Breakpoint locations of
      the same type at the same address can be sorted in arbitrary order.  */
