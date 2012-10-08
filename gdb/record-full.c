@@ -1114,8 +1114,6 @@ record_full_resume (struct target_ops *ops, ptid_t ptid, int step,
                          Use hard sigle step.  */
                       step = 1;
                     }
-		  else
-		    insert_single_step_breakpoints ();
                 }
             }
         }
@@ -1331,10 +1329,7 @@ record_full_wait_1 (struct target_ops *ops,
 			  reinit_frame_cache ();
 			  if (gdbarch_software_single_step (gdbarch,
                                                             get_current_frame ()))
-			    {
-			      step = 0;
-			      insert_single_step_breakpoints ();
-			    }
+			    step = 0;
 			  set_executing (inferior_ptid, 1);
 			}
 

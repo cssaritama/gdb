@@ -1433,7 +1433,6 @@ displaced_step_prepare (ptid_t ptid)
 
   /* i386 specific hack.  Set a breakpoint at the destination.  */
   gdbarch_software_single_step (gdbarch, get_current_frame ());
-  insert_single_step_breakpoints ();
 
   discard_cleanups (ignore_cleanups);
 
@@ -1695,8 +1694,6 @@ maybe_software_singlestep (struct gdbarch *gdbarch, CORE_ADDR pc)
       && gdbarch_software_single_step_p (gdbarch)
       && gdbarch_software_single_step (gdbarch, get_current_frame ()))
     {
-      insert_single_step_breakpoints ();
-
       hw_step = 0;
       /* Do not pull these breakpoints until after a `wait' in
 	 `wait_for_inferior'.  */
@@ -5369,7 +5366,6 @@ switch_back_to_stepped_thread (struct execution_control_state *ecs)
 	  if (gdbarch_software_single_step_p (gdbarch))
 	    {
 	      insert_single_step_breakpoint (frame, get_frame_pc (frame));
-	      insert_single_step_breakpoints ();
 	      resume (0, GDB_SIGNAL_0);
 	      prepare_to_wait (ecs);
 	    }
