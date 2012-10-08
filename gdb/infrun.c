@@ -1390,6 +1390,9 @@ displaced_step_prepare (ptid_t ptid)
   /* Resume execution at the copy.  */
   regcache_write_pc (regcache, copy);
 
+  /* i386 specific hack.  Set a breakpoint at the destination.  */
+  gdbarch_software_single_step (gdbarch, get_current_frame ());
+
   discard_cleanups (ignore_cleanups);
 
   do_cleanups (old_cleanups);
@@ -1448,6 +1451,9 @@ displaced_step_fixup (ptid_t event_ptid, enum gdb_signal signal)
   old_cleanups = make_cleanup (displaced_step_clear_cleanup, displaced);
 
   displaced_step_restore (displaced, displaced->step_ptid);
+
+  context_switch (event_ptid);
+  remove_single_step_breakpoints ();
 
   /* Did the instruction complete successfully?  */
   if (signal == GDB_SIGNAL_TRAP)
@@ -3006,6 +3012,7 @@ adjust_pc_after_break (struct execution_control_state *ecs)
 	 we also need to back up to the breakpoint address.  */
 
       if (singlestep_breakpoints_inserted_p
+	  || single_step_breakpoints_inserted_here (breakpoint_pc)
 	  || !ptid_equal (ecs->ptid, inferior_ptid)
 	  || !currently_stepping (ecs->event_thread)
 	  || ecs->event_thread->prev_pc == breakpoint_pc)

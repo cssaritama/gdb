@@ -14838,6 +14838,22 @@ single_step_breakpoints_inserted (void)
           || single_step_breakpoints[1] != NULL);
 }
 
+int
+single_step_breakpoints_inserted_here (CORE_ADDR pc)
+{
+  int i;
+
+  for (i = 0; i < 2; i++)
+    {
+      struct bp_target_info *bp = single_step_breakpoints[i];
+
+      if (bp != NULL && bp->placed_address == pc)
+	return 1;
+    }
+
+  return 0;
+}
+
 /* Remove and delete any breakpoints used for software single step.  */
 
 void
