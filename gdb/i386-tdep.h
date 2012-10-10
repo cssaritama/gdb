@@ -398,6 +398,11 @@ extern int i386_process_record (struct gdbarch *gdbarch,
 
 int i386_software_single_step (struct frame_info *frame);
 
+int i386_cond_jump_dest (struct frame_info *frame,
+			 const gdb_byte *insn, CORE_ADDR pc, CORE_ADDR *dest);
+int i386_jump_dest (struct frame_info *frame,
+		    const gdb_byte *insn, CORE_ADDR pc, CORE_ADDR *dest);
+
 
 
 /* Functions and variables exported from i386bsd-tdep.c.  */
