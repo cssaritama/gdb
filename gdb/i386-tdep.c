@@ -7536,7 +7536,7 @@ get_sp (struct frame_info *frame)
 /* If the instruction at PC is a jump, return the address of its
    target.  Otherwise, return PC.  */
 
-static int
+int
 i386_cond_jump_dest (struct frame_info *frame,
 		     const gdb_byte *insn, const CORE_ADDR pc, CORE_ADDR *dest)
 {
@@ -7749,7 +7749,7 @@ arch_reg_to_regnum (struct gdbarch *gdbarch, int reg)
 /* If the instruction at PC is a jump, write to *DEST the address of
    its target and return true.  Otherwise, return false.  */
 
-static int
+int
 i386_jump_dest (struct frame_info *frame,
 		const gdb_byte *insn, const CORE_ADDR pc, CORE_ADDR *dest)
 {
