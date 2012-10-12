@@ -7475,7 +7475,8 @@ get_sp (struct frame_info *frame)
    target.  Otherwise, return PC.  */
 
 static int
-i386_cond_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
+i386_cond_jump_dest (struct frame_info *frame,
+		     const gdb_byte *insn, const CORE_ADDR pc, CORE_ADDR *dest)
 {
   struct gdbarch *gdbarch = get_frame_arch (frame);
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
@@ -7485,23 +7486,19 @@ i386_cond_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
   int jump = 0;
   int rel = 0;
   LONGEST disp;
+  int offset = 0;
 
-  if (target_read_memory (pc, &op, 1))
-    return pc;
-  pc++;
+  op = insn[offset++];
 
   if (op == 0x66)
     {
       data16 = 1;
-      op = read_memory_unsigned_integer (pc, 1, byte_order);
-      pc++;
+      op = insn[offset++];
     }
 
   if (op == 0x0f)
     {
-      if (target_read_memory (pc, &op, 1))
-	return pc;
-      pc++;
+      op = insn[offset++];
 
       /* The 16 and 32 offset encodings can be seen as '8-bit encoding
 	 + 0x0f10'.  */
@@ -7589,22 +7586,22 @@ i386_cond_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
   switch (rel)
     {
     case 8:
-      disp = read_memory_integer (pc, 1, byte_order);
-      pc += 1;
+      disp = extract_signed_integer (&insn[offset], 1, byte_order);
+      offset += 1;
       break;
     case 16:
-      disp = read_memory_integer (pc, 2, byte_order);
-      pc += 2;
+      disp = extract_signed_integer (&insn[offset], 2, byte_order);
+      offset += 2;
       break;
     case 32:
-      disp = read_memory_integer (pc, 4, byte_order);
-      pc += 4;
+      disp = extract_signed_integer (&insn[offset], 4, byte_order);
+      offset += 4;
       break;
     default:
       gdb_assert_not_reached ("unhandled rel width");
     }
 
-  *dest = pc + disp;
+  *dest = pc + offset + disp;
   return 1;
 }
 
@@ -7691,7 +7688,8 @@ arch_reg_to_regnum (struct gdbarch *gdbarch, int reg)
    its target and return true.  Otherwise, return false.  */
 
 static int
-i386_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
+i386_jump_dest (struct frame_info *frame,
+		const gdb_byte *insn, const CORE_ADDR pc, CORE_ADDR *dest)
 {
   struct gdbarch *gdbarch = get_frame_arch (frame);
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
@@ -7701,10 +7699,9 @@ i386_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
   gdb_byte modrm;
   gdb_byte rex;
   int rex_p = 0;
+  int offset = 0;
 
-  if (target_read_memory (pc, &op, 1))
-    return 0;
-  pc++;
+  op = insn[offset++];
 
   /* Skip REX instruction prefix.  */
   rex_p = rex_prefix_p (op);
@@ -7712,16 +7709,13 @@ i386_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
     {
       rex = op;
 
-      if (target_read_memory (pc, &op, 1))
-	return 0;
-      pc++;
+      op = insn[offset++];
     }
 
   if (op == 0x66)
     {
       data16 = 1;
-      op = read_memory_unsigned_integer (pc, 1, byte_order);
-      pc++;
+      op = insn[offset++];
     }
 
   switch (op)
@@ -7730,8 +7724,7 @@ i386_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
       {
 	int mod, reg, rm, have_sib;
 
-	modrm = read_memory_unsigned_integer (pc, 1, byte_order);
-	pc++;
+	modrm = insn[offset++];
 
 	reg = MODRM_REG_FIELD (modrm);
 
@@ -7759,11 +7752,11 @@ i386_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
 	  {
 	    LONGEST disp;
 
-	    disp = read_memory_integer (pc, 4, byte_order);
+	    disp = extract_signed_integer (&insn[offset], 4, byte_order);
 
 	    if (/* 64-bit mode && */ 1) /* rip-relative */
 	      {
-		CORE_ADDR addr = 4 + pc + disp;
+		CORE_ADDR addr = 4 + pc + offset + disp;
 
 		*dest = read_memory_integer (addr, 8, byte_order);
 	      }
@@ -7784,8 +7777,7 @@ i386_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
 		LONGEST offset_val = 0;
 		static const unsigned char scale_factors[] = { 1, 2, 4, 8 };
 
-		sib = read_memory_unsigned_integer (pc, 1, byte_order);
-		pc++;
+		sib = insn[offset++];
 
 		scale = scale_factors[SIB_SCALE_FIELD (sib)];
 
@@ -7834,9 +7826,9 @@ i386_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
 
 		    if (dispb > 0)
 		      {
-			offset_val
-			  = read_memory_unsigned_integer (pc, dispb, byte_order);
-			pc += dispb;
+			offset_val = extract_signed_integer (&insn[offset], dispb,
+							     byte_order);
+			offset += dispb;
 		      }
 		  }
 
@@ -7858,8 +7850,9 @@ i386_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
 		  dispb = 4;
 		if (dispb > 0)
 		  {
-		    disp = read_memory_unsigned_integer (pc, dispb, byte_order);
-		    pc += dispb;
+		    disp = extract_signed_integer (&insn[offset], dispb,
+						   byte_order);
+		    offset += dispb;
 		  }
 
 		regnum = arch_reg_to_regnum (gdbarch, rm);
@@ -7879,25 +7872,25 @@ i386_jump_dest (struct frame_info *frame, CORE_ADDR pc, CORE_ADDR *dest)
       /* Relative branch/jump: if data16 == 0, disp32, else disp16.  */
       if (data16)
 	{
-	  delta = read_memory_integer (pc, 2, byte_order);
-	  pc += 2;
+	  delta = extract_signed_integer (&insn[offset], 2, byte_order);
+	  offset += 2;
 	}
       else
 	{
-	  delta = read_memory_integer (pc, 4, byte_order);
-	  pc += 4;
+	  delta = extract_signed_integer (&insn[offset], 4, byte_order);
+	  offset += 4;
 	}
       break;
     case 0xeb:
       /* Relative jump, disp8 (ignore data16).  */
-      delta = read_memory_integer (pc, 1, byte_order);
-      pc += 1;
+      delta = extract_signed_integer (&insn[offset], 1, byte_order);
+      offset += 1;
       break;
     default:
       return 0;
     }
 
-  *dest = pc + delta;
+  *dest = pc + offset + delta;
   return 1;
 }
 
@@ -7924,10 +7917,11 @@ i386_get_next_pc_1 (struct frame_info *frame, CORE_ADDR pc)
   memset (buf + len, 0, len);
 
   /* Skip legacy instruction prefixes.  */
-  insn = i386_skip_prefixes (insn, len);
+  insn = i386_skip_prefixes (buf, len);
+  pc += insn - buf;
 
-  if (i386_cond_jump_dest (frame, pc, &next_pc)
-      || i386_jump_dest (frame, pc, &next_pc))
+  if (i386_cond_jump_dest (frame, insn, pc, &next_pc)
+      || i386_jump_dest (frame, insn, pc, &next_pc))
     return next_pc;
 
   if (*insn == 0xc3)	/* 'ret' instruction.  */
