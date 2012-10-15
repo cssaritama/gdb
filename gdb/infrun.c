@@ -5339,10 +5339,29 @@ process_event_stop_test:
 int
 currently_stepping (struct thread_info *tp)
 {
-  return ((tp->control.step_range_end
-	   && tp->control.step_resume_breakpoint == NULL)
-	  || tp->control.trap_expected
-	  || bpstat_should_step ());
+  /* If stepping over a breakpoint.  */
+  if (tp->control.trap_expected)
+    return 1;
+
+  /* On SSS archs, we can't step into signal handlers (we wouldn't
+     know where to put the sss breakpointq), so when delivering a
+     signal, we install a step-resume breakpoint at the current PC,
+     and let the handler run (with breakpoints installed).  It's
+     important to return false here, so that adjust_pc_after_break
+     doesn't get confused.  */
+  if (tp->step_after_step_resume_breakpoint)
+    return 0;
+
+  /* Step the thread if we're doing a "step/next/etc.", or e.g., we
+     have a software watchpoint that requires stepping to change the
+     inferior state at each step.  */
+  if ((tp->control.step_range_end
+       && tp->control.step_resume_breakpoint == NULL)
+      || bpstat_should_step ())
+    return 1;
+
+  /* Otherwise, no need to step.  */
+  return 0;
 }
 
 /* Returns true if any thread *but* the one passed in "data" is in the
