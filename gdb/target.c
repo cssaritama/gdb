@@ -43,6 +43,7 @@
 #include "tracepoint.h"
 #include "gdb/fileio.h"
 #include "agent.h"
+#include "annotate.h"
 
 static void target_info (char *, int);
 

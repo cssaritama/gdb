@@ -40,6 +40,14 @@ void (*deprecated_annotate_signal_hook) (void);
 
 static int ignore_count_changed = 0;
 
+enum annotation
+  {
+    ANN_OTHER,
+    ANN_FRAMES_INVALID,
+  };
+
+static enum annotation last_annotation = ANN_OTHER;
+
 static void
 print_value_flags (struct type *t)
 {
@@ -56,6 +64,7 @@ annotate_breakpoints_changed (void)
     {
       target_terminal_ours ();
       printf_unfiltered (("\n\032\032breakpoints-invalid\n"));
+      last_annotation = ANN_OTHER;
       if (ignore_count_changed)
 	ignore_count_changed = 0;   /* Avoid multiple break annotations.  */
     }
@@ -78,14 +87,20 @@ void
 annotate_breakpoint (int num)
 {
   if (annotation_level > 1)
-    printf_filtered (("\n\032\032breakpoint %d\n"), num);
+    {
+      printf_filtered (("\n\032\032breakpoint %d\n"), num);
+      last_annotation = ANN_OTHER;
+    }
 }
 
 void
 annotate_catchpoint (int num)
 {
   if (annotation_level > 1)
-    printf_filtered (("\n\032\032catchpoint %d\n"), num);
+    {
+      printf_filtered (("\n\032\032catchpoint %d\n"), num);
+      last_annotation = ANN_OTHER;
+    }
 }
 
 void
@@ -93,6 +108,7 @@ annotate_watchpoint (int num)
 {
   if (annotation_level > 1)
     printf_filtered (("\n\032\032watchpoint %d\n"), num);
+  last_annotation = ANN_OTHER;
 }
 
 void
@@ -100,11 +116,13 @@ annotate_starting (void)
 {
   if (annotation_level > 1)
     printf_filtered (("\n\032\032starting\n"));
+  last_annotation = ANN_OTHER;
 }
 
 void
 annotate_stopped (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level > 1)
     printf_filtered (("\n\032\032stopped\n"));
   if (annotation_level > 1 && ignore_count_changed)
@@ -117,6 +135,7 @@ annotate_stopped (void)
 void
 annotate_exited (int exitstatus)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level > 1)
     printf_filtered (("\n\032\032exited %d\n"), exitstatus);
 }
@@ -124,6 +143,7 @@ annotate_exited (int exitstatus)
 void
 annotate_signalled (void)
 {
+  last_annotation = ANN_OTHER;
   if (deprecated_annotate_signalled_hook)
     deprecated_annotate_signalled_hook ();
 
@@ -134,6 +154,7 @@ annotate_signalled (void)
 void
 annotate_signal_name (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032signal-name\n"));
 }
@@ -141,6 +162,7 @@ annotate_signal_name (void)
 void
 annotate_signal_name_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032signal-name-end\n"));
 }
@@ -155,6 +177,7 @@ annotate_signal_string (void)
 void
 annotate_signal_string_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032signal-string-end\n"));
 }
@@ -162,6 +185,7 @@ annotate_signal_string_end (void)
 void
 annotate_signal (void)
 {
+  last_annotation = ANN_OTHER;
   if (deprecated_annotate_signal_hook)
     deprecated_annotate_signal_hook ();
 
@@ -172,6 +196,7 @@ annotate_signal (void)
 void
 annotate_breakpoints_headers (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032breakpoints-headers\n"));
 }
@@ -179,6 +204,7 @@ annotate_breakpoints_headers (void)
 void
 annotate_field (int num)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032field %d\n"), num);
 }
@@ -186,6 +212,7 @@ annotate_field (int num)
 void
 annotate_breakpoints_table (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032breakpoints-table\n"));
 }
@@ -193,6 +220,7 @@ annotate_breakpoints_table (void)
 void
 annotate_record (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032record\n"));
 }
@@ -200,6 +228,7 @@ annotate_record (void)
 void
 annotate_breakpoints_table_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032breakpoints-table-end\n"));
 }
@@ -207,16 +236,18 @@ annotate_breakpoints_table_end (void)
 void
 annotate_frames_invalid (void)
 {
-  if (annotation_level == 2)
+  if (annotation_level == 2 && last_annotation != ANN_FRAMES_INVALID)
     {
       target_terminal_ours ();
       printf_unfiltered (("\n\032\032frames-invalid\n"));
     }
+  last_annotation = ANN_FRAMES_INVALID;
 }
 
 void
 annotate_new_thread (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level > 1)
     {
       printf_unfiltered (("\n\032\032new-thread\n"));
@@ -226,6 +257,7 @@ annotate_new_thread (void)
 void
 annotate_thread_changed (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level > 1)
     {
       printf_unfiltered (("\n\032\032thread-changed\n"));
@@ -235,6 +267,7 @@ annotate_thread_changed (void)
 void
 annotate_field_begin (struct type *type)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     {
       printf_filtered (("\n\032\032field-begin "));
@@ -246,6 +279,7 @@ annotate_field_begin (struct type *type)
 void
 annotate_field_name_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032field-name-end\n"));
 }
@@ -253,6 +287,7 @@ annotate_field_name_end (void)
 void
 annotate_field_value (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032field-value\n"));
 }
@@ -260,6 +295,7 @@ annotate_field_value (void)
 void
 annotate_field_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032field-end\n"));
 }
@@ -267,6 +303,7 @@ annotate_field_end (void)
 void
 annotate_quit (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level > 1)
     printf_filtered (("\n\032\032quit\n"));
 }
@@ -274,6 +311,7 @@ annotate_quit (void)
 void
 annotate_error (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level > 1)
     printf_filtered (("\n\032\032error\n"));
 }
@@ -281,6 +319,7 @@ annotate_error (void)
 void
 annotate_error_begin (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level > 1)
     fprintf_filtered (gdb_stderr, "\n\032\032error-begin\n");
 }
@@ -288,6 +327,7 @@ annotate_error_begin (void)
 void
 annotate_value_history_begin (int histindex, struct type *type)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     {
       printf_filtered (("\n\032\032value-history-begin %d "), histindex);
@@ -299,6 +339,7 @@ annotate_value_history_begin (int histindex, struct type *type)
 void
 annotate_value_begin (struct type *type)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     {
       printf_filtered (("\n\032\032value-begin "));
@@ -310,6 +351,7 @@ annotate_value_begin (struct type *type)
 void
 annotate_value_history_value (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032value-history-value\n"));
 }
@@ -317,6 +359,7 @@ annotate_value_history_value (void)
 void
 annotate_value_history_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032value-history-end\n"));
 }
@@ -324,6 +367,7 @@ annotate_value_history_end (void)
 void
 annotate_value_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032value-end\n"));
 }
@@ -331,6 +375,7 @@ annotate_value_end (void)
 void
 annotate_display_begin (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032display-begin\n"));
 }
@@ -338,6 +383,7 @@ annotate_display_begin (void)
 void
 annotate_display_number_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032display-number-end\n"));
 }
@@ -345,6 +391,7 @@ annotate_display_number_end (void)
 void
 annotate_display_format (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032display-format\n"));
 }
@@ -352,6 +399,7 @@ annotate_display_format (void)
 void
 annotate_display_expression (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032display-expression\n"));
 }
@@ -359,6 +407,7 @@ annotate_display_expression (void)
 void
 annotate_display_expression_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032display-expression-end\n"));
 }
@@ -366,6 +415,7 @@ annotate_display_expression_end (void)
 void
 annotate_display_value (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032display-value\n"));
 }
@@ -373,6 +423,7 @@ annotate_display_value (void)
 void
 annotate_display_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032display-end\n"));
 }
@@ -380,6 +431,7 @@ annotate_display_end (void)
 void
 annotate_arg_begin (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032arg-begin\n"));
 }
@@ -387,6 +439,7 @@ annotate_arg_begin (void)
 void
 annotate_arg_name_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032arg-name-end\n"));
 }
@@ -394,6 +447,7 @@ annotate_arg_name_end (void)
 void
 annotate_arg_value (struct type *type)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     {
       printf_filtered (("\n\032\032arg-value "));
@@ -405,6 +459,7 @@ annotate_arg_value (struct type *type)
 void
 annotate_arg_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032arg-end\n"));
 }
@@ -413,6 +468,7 @@ void
 annotate_source (char *filename, int line, int character, int mid,
 		 struct gdbarch *gdbarch, CORE_ADDR pc)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level > 1)
     printf_filtered (("\n\032\032source "));
   else
@@ -425,6 +481,7 @@ annotate_source (char *filename, int line, int character, int mid,
 void
 annotate_frame_begin (int level, struct gdbarch *gdbarch, CORE_ADDR pc)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level > 1)
     printf_filtered (("\n\032\032frame-begin %d %s\n"),
 		     level, paddress (gdbarch, pc));
@@ -433,6 +490,7 @@ annotate_frame_begin (int level, struct gdbarch *gdbarch, CORE_ADDR pc)
 void
 annotate_function_call (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032function-call\n"));
 }
@@ -440,6 +498,7 @@ annotate_function_call (void)
 void
 annotate_signal_handler_caller (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032signal-handler-caller\n"));
 }
@@ -447,6 +506,7 @@ annotate_signal_handler_caller (void)
 void
 annotate_frame_address (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-address\n"));
 }
@@ -454,6 +514,7 @@ annotate_frame_address (void)
 void
 annotate_frame_address_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-address-end\n"));
 }
@@ -461,6 +522,7 @@ annotate_frame_address_end (void)
 void
 annotate_frame_function_name (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-function-name\n"));
 }
@@ -468,6 +530,7 @@ annotate_frame_function_name (void)
 void
 annotate_frame_args (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-args\n"));
 }
@@ -475,6 +538,7 @@ annotate_frame_args (void)
 void
 annotate_frame_source_begin (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-source-begin\n"));
 }
@@ -482,6 +546,7 @@ annotate_frame_source_begin (void)
 void
 annotate_frame_source_file (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-source-file\n"));
 }
@@ -489,6 +554,7 @@ annotate_frame_source_file (void)
 void
 annotate_frame_source_file_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-source-file-end\n"));
 }
@@ -496,6 +562,7 @@ annotate_frame_source_file_end (void)
 void
 annotate_frame_source_line (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-source-line\n"));
 }
@@ -503,6 +570,7 @@ annotate_frame_source_line (void)
 void
 annotate_frame_source_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-source-end\n"));
 }
@@ -510,6 +578,7 @@ annotate_frame_source_end (void)
 void
 annotate_frame_where (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-where\n"));
 }
@@ -517,6 +586,7 @@ annotate_frame_where (void)
 void
 annotate_frame_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032frame-end\n"));
 }
@@ -524,6 +594,7 @@ annotate_frame_end (void)
 void
 annotate_array_section_begin (int idx, struct type *elttype)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     {
       printf_filtered (("\n\032\032array-section-begin %d "), idx);
@@ -535,6 +606,7 @@ annotate_array_section_begin (int idx, struct type *elttype)
 void
 annotate_elt_rep (unsigned int repcount)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032elt-rep %u\n"), repcount);
 }
@@ -542,6 +614,7 @@ annotate_elt_rep (unsigned int repcount)
 void
 annotate_elt_rep_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032elt-rep-end\n"));
 }
@@ -549,6 +622,7 @@ annotate_elt_rep_end (void)
 void
 annotate_elt (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032elt\n"));
 }
@@ -556,6 +630,7 @@ annotate_elt (void)
 void
 annotate_array_section_end (void)
 {
+  last_annotation = ANN_OTHER;
   if (annotation_level == 2)
     printf_filtered (("\n\032\032array-section-end\n"));
 }
