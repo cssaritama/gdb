@@ -2689,6 +2689,8 @@ target_resume (ptid_t ptid, int step, enum gdb_signal signal)
     {
       if (t->to_resume != NULL)
 	{
+	  struct thread_info *resume_thread;
+
 	  t->to_resume (t, ptid, step, signal);
 	  if (targetdebug)
 	    fprintf_unfiltered (gdb_stdlog, "target_resume (%d, %s, %s)\n",
@@ -2700,6 +2702,20 @@ target_resume (ptid_t ptid, int step, enum gdb_signal signal)
 	  set_executing (ptid, 1);
 	  set_running (ptid, 1);
 	  clear_inline_frame_state (ptid);
+
+	  if (ptid_is_pid (ptid)
+	      || ptid_equal (ptid, minus_one_ptid))
+	    {
+	      struct thread_info *tp;
+
+	      ALL_THREADS (tp)
+		if (ptid_match (tp->ptid, ptid))
+		  tp->control.single_stepped = 0;
+	      resume_thread = find_thread_ptid (inferior_ptid);
+	    }
+	  else
+	    resume_thread = find_thread_ptid (ptid);
+	  resume_thread->control.single_stepped = step;
 	  return;
 	}
     }

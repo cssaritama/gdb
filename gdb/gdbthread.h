@@ -100,6 +100,8 @@ struct thread_control_state
      by keep_going.  */
   int trap_expected;
 
+  int single_stepped;
+
   /* Nonzero if the thread is being proceeded for a "finish" command
      or a similar situation when stop_registers should be saved.  */
   int proceed_to_finish;

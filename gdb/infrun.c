@@ -3016,22 +3016,17 @@ adjust_pc_after_break (struct thread_info *event_thread,
 	 differentiate between the two, as the latter needs adjusting
 	 but the former does not.
 
-	 The SIGTRAP can be due to a completed hardware single-step only if 
-	  - this thread is currently being stepped
-	  - we didn't insert software single-step breakpoints for
-	    this thread
-
-	 If any of these events did not occur, we must have stopped due
-	 to hitting a software breakpoint, and have to back up to the
-	 breakpoint address.
+	 The SIGTRAP can be due to a completed hardware single-step
+	 only if this thread is currently being stepped.  If that did
+	 not occur, we must have stopped due to hitting a software
+	 breakpoint, and have to back up to the breakpoint address.
 
 	 As a special case, we could have hardware single-stepped a
 	 software breakpoint.  In this case (prev_pc == breakpoint_pc),
 	 we also need to back up to the breakpoint address.  */
 
       /* Replace this with event_thread->last_resume_kind == resume_step.  */
-      if (single_step_breakpoints_inserted_p (event_thread)
-	  || !currently_stepping (event_thread)
+      if (!event_thread->control.single_stepped
 	  || event_thread->prev_pc == breakpoint_pc)
 	regcache_write_pc (regcache, breakpoint_pc);
       else if (debug_infrun)
