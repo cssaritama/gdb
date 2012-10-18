@@ -3390,6 +3390,11 @@ handle_inferior_event (struct execution_control_state *ecs)
     case TARGET_WAITKIND_LOADED:
       if (debug_infrun)
         fprintf_unfiltered (gdb_stdlog, "infrun: TARGET_WAITKIND_LOADED\n");
+
+      if (!ptid_equal (ecs->ptid, inferior_ptid))
+	context_switch (ecs->ptid);
+      remove_single_step_breakpoints (ecs);
+
       /* Ignore gracefully during startup of the inferior, as it might
          be the shell which has just loaded some objects, otherwise
          add the symbols for the newly loaded objects.  Also ignore at
@@ -3400,8 +3405,6 @@ handle_inferior_event (struct execution_control_state *ecs)
 	{
 	  struct regcache *regcache;
 
-	  if (!ptid_equal (ecs->ptid, inferior_ptid))
-	    context_switch (ecs->ptid);
 	  regcache = get_thread_regcache (ecs->ptid);
 
 	  handle_solib_event ();
@@ -3441,9 +3444,6 @@ handle_inferior_event (struct execution_control_state *ecs)
 	 we're attaching or setting up a remote connection.  */
       if (stop_soon == STOP_QUIETLY || stop_soon == NO_STOP_QUIETLY)
 	{
-	  if (!ptid_equal (ecs->ptid, inferior_ptid))
-	    context_switch (ecs->ptid);
-
 	  /* Loading of shared libraries might have changed breakpoint
 	     addresses.  Make sure new breakpoints are inserted.  */
 	  if (stop_soon == NO_STOP_QUIETLY
@@ -3461,6 +3461,7 @@ handle_inferior_event (struct execution_control_state *ecs)
         fprintf_unfiltered (gdb_stdlog, "infrun: TARGET_WAITKIND_SPURIOUS\n");
       if (!ptid_equal (ecs->ptid, inferior_ptid))
 	context_switch (ecs->ptid);
+      remove_single_step_breakpoints (ecs);
       resume (0, GDB_SIGNAL_0);
       prepare_to_wait (ecs);
       return;
@@ -3663,6 +3664,8 @@ handle_inferior_event (struct execution_control_state *ecs)
 
       if (!ptid_equal (ecs->ptid, inferior_ptid))
 	context_switch (ecs->ptid);
+
+      remove_single_step_breakpoints (ecs);
 
       current_inferior ()->waiting_for_vfork_done = 0;
       current_inferior ()->pspace->breakpoints_not_allowed = 0;
