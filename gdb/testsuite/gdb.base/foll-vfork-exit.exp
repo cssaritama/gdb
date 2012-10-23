@@ -1,0 +1,289 @@
+# Copyright 1997, 1999, 2007-2012 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+if { [is_remote target] || ![isnative] } then {
+    continue
+}
+
+# Until "set follow-fork-mode" and "catch vfork" are implemented on
+# other targets...
+#
+if {![istarget "hppa*-hp-hpux*"] && ![istarget "*-linux*"]} then {
+    continue
+}
+
+# Test to see if we are on an HP-UX 10.20 and if so,
+# do not run these tests as catching vfork is disabled for
+# 10.20.
+
+if [istarget "hppa*-hp-hpux10.20"] then {
+    return 0
+}
+
+standard_testfile
+
+if {[build_executable $testfile.exp $testfile $srcfile {debug}] == -1} {
+    untested foll-vfork.exp
+}
+
+# A few of these tests require a little more time than the standard
+# timeout allows.
+set oldtimeout $timeout
+set timeout [expr "$timeout + 10"]
+
+proc check_vfork_catchpoints {} {
+  global gdb_prompt
+  global has_vfork_catchpoints
+
+  # Verify that the system supports "catch vfork".
+  gdb_test "catch vfork" "Catchpoint \[0-9\]* \\(vfork\\)" "insert first vfork catchpoint"
+  set has_vfork_catchpoints 0
+  gdb_test_multiple "continue" "continue to first vfork catchpoint" {
+    -re ".*Your system does not support this type\r\nof catchpoint.*$gdb_prompt $" {
+      unsupported "continue to first vfork catchpoint"
+    }
+    -re ".*Catchpoint.*$gdb_prompt $" {
+      set has_vfork_catchpoints 1
+      pass "continue to first vfork catchpoint"
+    }
+  }
+
+  if {$has_vfork_catchpoints == 0} {
+    unsupported "vfork catchpoints"
+    return -code return
+  }
+}
+
+proc vfork_parent_follow_through_step {} {
+  with_test_prefix "vfork parent follow, through step" {
+   global gdb_prompt
+
+   gdb_test_no_output "set follow-fork parent"
+
+   set test "step"
+   gdb_test_multiple "next" $test {
+       -re "Detaching after fork from.*if \\(pid == 0\\).*$gdb_prompt " {
+	   pass $test
+       }
+   }
+   # The child has been detached; allow time for any output it might
+   # generate to arrive, so that output doesn't get confused with
+   # any gdb_expected debugger output from a subsequent testpoint.
+   #
+   exec sleep 1
+}}
+
+proc vfork_parent_follow_to_bp {} {
+  with_test_prefix "vfork parent follow, to bp" {
+   global gdb_prompt
+   global srcfile
+
+   gdb_test_no_output "set follow-fork parent"
+
+   set bp_location [gdb_get_line_number "printf (\"I'm the proud parent of child"]
+   gdb_test "break ${srcfile}:${bp_location}" ".*" "break, vfork to bp"
+
+   set test "continue to bp"
+   gdb_test_multiple "continue" $test {
+       -re ".*Detaching after fork from child process.*Breakpoint.*${bp_location}.*$gdb_prompt " {
+	   pass $test
+       }
+   }
+   # The child has been detached; allow time for any output it might
+   # generate to arrive, so that output doesn't get confused with
+   # any expected debugger output from a subsequent testpoint.
+   #
+   exec sleep 1
+}}
+
+# Kill child and reload symbols.
+proc kill_child {} {
+   global binfile
+   global gdb_prompt
+
+   set test "killing inferior"
+   gdb_test_multiple "kill" $test {
+      -re ".*Kill the program being debugged.*y or n. $" {
+         gdb_test_no_output "y" ""
+         set test2 "file $binfile"
+         gdb_test_multiple "file $binfile" $test2 {
+            -re ".*Load new symbol table from.*y or n. $" {
+               send_gdb "y\n"
+               gdb_test_multiple "" "loading symbols" {
+                  -re "Reading symbols from.*$gdb_prompt $" {
+		  }
+               }
+            }
+            -re ".*gdb_prompt $" {
+	    }
+          }
+      }
+      -re ".*$gdb_prompt $" {
+      }
+    }
+}
+
+proc vfork_child_follow_to_exit {} {
+  with_test_prefix "vfork child follow, to exit" {
+   global gdb_prompt
+
+   gdb_test_no_output "set follow-fork child"
+
+   set test "continue to child exit"
+   gdb_test_multiple "continue" $test {
+      -re "Couldn't get registers.*$gdb_prompt " {
+	  # GDB had a bug where this would happen.
+	  fail "$test (PR xxx)"
+      }
+      -re "Attaching after.* vfork to.*Detaching vfork parent .* after child exit.*$gdb_prompt " {
+	  pass $test
+      }
+   }
+   # The parent has been detached; allow time for any output it might
+   # generate to arrive, so that output doesn't get confused with
+   # any gdb_expected debugger output from a subsequent testpoint.
+   #
+   exec sleep 1
+
+   # Explicitly kill this child, or a subsequent rerun actually runs
+   # the exec'd child, not the original program...
+   kill_child
+}}
+
+proc tcatch_vfork_then_parent_follow {} {
+  with_test_prefix "vfork parent follow, finish after tcatch vfork" {
+   global gdb_prompt
+   global srcfile
+
+   gdb_test_no_output "set follow-fork parent"
+
+   gdb_test "tcatch vfork" "Catchpoint .*(vfork).*"
+
+   # HP-UX 10.20 seems to stop you in "vfork", while more recent
+   # HP-UXs stop you in "_vfork".
+   set test "continue to vfork"
+   gdb_test_multiple "continue" $test {
+      -re "0x\[0-9a-fA-F\]*.*(vfork|__kernel_v?syscall).*$gdb_prompt " {
+	  pass $test
+      }
+      -re "vfork \\(\\) at.*$gdb_prompt " {
+	  pass $test
+      }
+   }
+
+   set linenum [gdb_get_line_number "pid = vfork ();"]
+   set test "finish"
+   gdb_test_multiple "finish" $test {
+      -re "Run till exit from.*vfork.*0x\[0-9a-fA-F\]* in main .* at .*${srcfile}:${linenum}.*$gdb_prompt " {
+	  pass $test
+      }
+      -re "Run till exit from.*__kernel_v?syscall.*0x\[0-9a-fA-F\]* in vfork .*$gdb_prompt " {
+	  send_gdb "finish\n"
+	  exp_continue
+      }
+   }
+   # The child has been detached; allow time for any output it might
+   # generate to arrive, so that output doesn't get confused with
+   # any expected debugger output from a subsequent testpoint.
+   #
+   exec sleep 1
+}}
+
+proc tcatch_vfork_then_child_follow {} {
+  with_test_prefix "vfork child follow, finish after tcatch vfork" {
+   global gdb_prompt
+   global srcfile
+
+   gdb_test_no_output "set follow-fork child"
+
+   gdb_test "tcatch vfork" "Catchpoint .*(vfork).*"
+
+   # HP-UX 10.20 seems to stop you in "vfork", while more recent HP-UXs
+   # stop you in "_vfork".
+   set test "continue to vfork"
+   gdb_test_multiple "continue" $test {
+      -re "vfork \\(\\) at .*$gdb_prompt $" {
+	  pass $test
+      }
+      -re "0x\[0-9a-fA-F\]*.*(vfork|__kernel_v?syscall).*$gdb_prompt " {
+	  pass $test
+      }
+   }
+
+   set test "finish"
+   gdb_test_multiple "finish" $test {
+      -re "Run till exit from.*vfork.*exited normally.*$gdb_prompt " {
+	  setup_kfail "gdb/0" *-*-*
+	  fail $test
+      }
+      -re "Run till exit from.*vfork.*pid = vfork \\(\\).*$gdb_prompt " {
+	  pass $test
+      }
+      -re "Run till exit from.*__kernel_v?syscall.*0x\[0-9a-fA-F\]* in vfork .*$gdb_prompt " {
+	  send_gdb "finish\n"
+	  exp_continue
+      }
+   }
+   # The parent has been detached; allow time for any output it might
+   # generate to arrive, so that output doesn't get confused with
+   # any expected debugger output from a subsequent testpoint.
+   #
+   exec sleep 1
+}}
+
+proc do_vfork_and_exit_tests {} {
+   global gdb_prompt
+
+   # Check that vfork catchpoints are supported, as an indicator for whether
+   # vfork-following is supported.
+   if [runto_main] then { check_vfork_catchpoints }
+
+   # Try following the parent process by stepping through a call to
+   # vfork.  Do this without catchpoints.
+   if [runto_main] then { vfork_parent_follow_through_step }
+
+   # Try following the parent process by setting a breakpoint on the
+   # other side of a vfork, and running to that point.  Do this
+   # without catchpoints.
+   if [runto_main] then { vfork_parent_follow_to_bp }
+
+   # Try following the child process by just continuing through the
+   # vfork, and letting the child exit.
+   #
+   if [runto_main] then { vfork_child_follow_to_exit }
+
+   # Try catching a vfork, and stepping out to the parent.
+   #
+   if [runto_main] then { tcatch_vfork_then_parent_follow }
+
+   # Try catching a vfork, and stepping out to the child.
+   #
+   if [runto_main] then { tcatch_vfork_then_child_follow }
+}
+
+# Start with a fresh gdb
+clean_restart $testfile
+
+# The "Detaching..." and "Attaching..." messages may be hidden by
+# default.
+gdb_test_no_output "set verbose"
+
+# This is a test of gdb's ability to follow the parent or child of a
+# Unix vfork system call.  (The child will subsequently exit.)
+#
+do_vfork_and_exit_tests
+
+set timeout $oldtimeout
+return 0
