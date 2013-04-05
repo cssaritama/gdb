@@ -147,6 +147,25 @@ enum stop_stack_kind stop_stack_dummy;
 
 int stopped_by_random_signal;
 
+/* If startup-with-shell is set, GDB's "run" will attempt to start up
+   the debuggee under a shell.
+
+   This is in order for argument-expansion to occur.  E.g.,
+
+   (gdb) run *
+
+   The "*" gets expanded by the shell into a list of files.
+
+   While this is a nice feature, it turns out to interact badly with
+   some of the catch-fork/catch-exec features we have added.  In
+   particular, if the shell does any fork/exec's before the exec of
+   the target program, that can confuse GDB.  To disable this feature,
+   do "set startup-with-shell false".
+
+   The catch-exec traps expected during start-up will be one more if
+   the target is started up with a shell.  */
+int startup_with_shell = 1;
+
 
 /* Accessor routines.  */
 
@@ -255,7 +274,7 @@ construct_inferior_arguments (int argc, char **argv)
 {
   char *result;
 
-  if (STARTUP_WITH_SHELL)
+  if (startup_with_shell)
     {
 #ifdef __MINGW32__
       /* This holds all the characters considered special to the
