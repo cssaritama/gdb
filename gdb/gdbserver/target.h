@@ -57,6 +57,18 @@ struct thread_resume
      linux; SuspendThread on win32).  This is a host signal value (not
      enum gdb_signal).  */
   int sig;
+
+  /* Range to single step within.  Valid only iff KIND is resume_step.
+
+     Continuing stepping while the PC is in this range.
+
+     Note that STEP_RANGE_END is the address of the first instruction
+     beyond the step range, and NOT the address of the last
+     instruction within it.  This has the property that START == END
+     means 'step only once', even if the instruction at START jumps to
+     START.  */
+  CORE_ADDR step_range_start;	/* Inclusive */
+  CORE_ADDR step_range_end;	/* Exclusive */
 };
 
 /* Generally, what has the program done?  */
@@ -414,6 +426,8 @@ struct target_ops
      to break a cyclic dependency.  */
   void (*read_btrace) (struct btrace_target_info *, struct buffer *, int type);
 
+  /* Return true if target supports range stepping.  */
+  int (*supports_range_stepping) (void);
 };
 
 extern struct target_ops *the_target;
@@ -548,6 +562,10 @@ int kill_inferior (int);
 
 #define target_read_btrace(tinfo, buffer, type)	\
   (*the_target->read_btrace) (tinfo, buffer, type)
+
+#define target_supports_range_stepping() \
+  (the_target->supports_range_stepping ? \
+   (*the_target->supports_range_stepping) () : 0)
 
 /* Start non-stop mode, returns 0 on success, -1 on failure.   */
 
