@@ -14964,8 +14964,12 @@ deprecated_remove_raw_breakpoint (struct gdbarch *gdbarch, void *bp)
 /* One (or perhaps two) breakpoints used for software single
    stepping.  */
 
-static void *single_step_breakpoints[2];
-static struct gdbarch *single_step_gdbarch[2];
+struct single_step_breakpoint
+{
+  struct bp_target_info *bkpt;
+  struct gdbarch *gdbarch;
+};
+static struct single_step_breakpoint single_step_breakpoints[2];
 
 /* Create and insert a breakpoint for software single step.  */
 
@@ -14974,19 +14978,17 @@ insert_single_step_breakpoint (struct gdbarch *gdbarch,
 			       struct address_space *aspace, 
 			       CORE_ADDR next_pc)
 {
-  void **bpt_p;
+  struct single_step_breakpoint *bpt_p;
 
-  if (single_step_breakpoints[0] == NULL)
-    {
-      bpt_p = &single_step_breakpoints[0];
-      single_step_gdbarch[0] = gdbarch;
-    }
+  if (single_step_breakpoints[0].bkpt == NULL)
+    bpt_p = &single_step_breakpoints[0];
   else
     {
-      gdb_assert (single_step_breakpoints[1] == NULL);
+      gdb_assert (single_step_breakpoints[1].bkpt == NULL);
       bpt_p = &single_step_breakpoints[1];
-      single_step_gdbarch[1] = gdbarch;
     }
+
+  bpt_p->gdbarch = gdbarch;
 
   /* NOTE drow/2006-04-11: A future improvement to this function would
      be to only create the breakpoints once, and actually put them on
@@ -14995,8 +14997,8 @@ insert_single_step_breakpoint (struct gdbarch *gdbarch,
      this requires corresponding changes elsewhere where single step
      breakpoints are handled, however.  So, for now, we use this.  */
 
-  *bpt_p = deprecated_insert_raw_breakpoint (gdbarch, aspace, next_pc);
-  if (*bpt_p == NULL)
+  bpt_p->bkpt = deprecated_insert_raw_breakpoint (gdbarch, aspace, next_pc);
+  if (bpt_p->bkpt == NULL)
     error (_("Could not insert single-step breakpoint at %s"),
 	     paddress (gdbarch, next_pc));
 }
@@ -15007,8 +15009,17 @@ insert_single_step_breakpoint (struct gdbarch *gdbarch,
 int
 single_step_breakpoints_inserted (void)
 {
-  return (single_step_breakpoints[0] != NULL
-          || single_step_breakpoints[1] != NULL);
+  int i;
+
+  for (i = 0; i < 2; i++)
+    {
+      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
+
+      if (bp->bkpt != NULL)
+	return 1;
+    }
+
+  return 0;
 }
 
 int
@@ -15018,9 +15029,9 @@ single_step_breakpoints_inserted_here (CORE_ADDR pc)
 
   for (i = 0; i < 2; i++)
     {
-      struct bp_target_info *bp = single_step_breakpoints[i];
+      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
 
-      if (bp != NULL && bp->placed_address == pc)
+      if (bp->bkpt != NULL && bp->bkpt->placed_address == pc)
 	return 1;
     }
 
@@ -15032,21 +15043,22 @@ single_step_breakpoints_inserted_here (CORE_ADDR pc)
 void
 remove_single_step_breakpoints (void)
 {
-  gdb_assert (single_step_breakpoints[0] != NULL);
+  int i;
 
-  /* See insert_single_step_breakpoint for more about this deprecated
-     call.  */
-  deprecated_remove_raw_breakpoint (single_step_gdbarch[0],
-				    single_step_breakpoints[0]);
-  single_step_gdbarch[0] = NULL;
-  single_step_breakpoints[0] = NULL;
+  gdb_assert (single_step_breakpoints[0].bkpt != NULL);
 
-  if (single_step_breakpoints[1] != NULL)
+  for (i = 0; i < 2; i++)
     {
-      deprecated_remove_raw_breakpoint (single_step_gdbarch[1],
-					single_step_breakpoints[1]);
-      single_step_gdbarch[1] = NULL;
-      single_step_breakpoints[1] = NULL;
+      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
+
+      if (bp->bkpt != NULL)
+	{
+	  /* See insert_single_step_breakpoint for more about this
+	     deprecated call.  */
+	  deprecated_remove_raw_breakpoint (bp->gdbarch, bp->bkpt);
+	  bp->gdbarch = NULL;
+	  bp->bkpt = NULL;
+	}
     }
 }
 
@@ -15061,12 +15073,16 @@ cancel_single_step_breakpoints (void)
   int i;
 
   for (i = 0; i < 2; i++)
-    if (single_step_breakpoints[i])
-      {
-	xfree (single_step_breakpoints[i]);
-	single_step_breakpoints[i] = NULL;
-	single_step_gdbarch[i] = NULL;
-      }
+    {
+      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
+
+      if (bp->bkpt != NULL)
+	{
+	  xfree (bp->bkpt);
+	  bp->bkpt = NULL;
+	  bp->gdbarch = NULL;
+	}
+    }
 }
 
 /* Detach software single-step breakpoints from INFERIOR_PTID without
@@ -15078,9 +15094,12 @@ detach_single_step_breakpoints (void)
   int i;
 
   for (i = 0; i < 2; i++)
-    if (single_step_breakpoints[i])
-      target_remove_breakpoint (single_step_gdbarch[i],
-				single_step_breakpoints[i]);
+    {
+      struct single_step_breakpoint *bp = &single_step_breakpoints[i];
+
+      if (bp->bkpt != NULL)
+	target_remove_breakpoint (bp->gdbarch, bp->bkpt);
+    }
 }
 
 /* Check whether a software single-step breakpoint is inserted at
@@ -15094,7 +15113,7 @@ single_step_breakpoint_inserted_here_p (struct address_space *aspace,
 
   for (i = 0; i < 2; i++)
     {
-      struct bp_target_info *bp_tgt = single_step_breakpoints[i];
+      struct bp_target_info *bp_tgt = single_step_breakpoints[i].bkpt;
       if (bp_tgt
 	  && breakpoint_address_match (bp_tgt->placed_address_space,
 				       bp_tgt->placed_address,
