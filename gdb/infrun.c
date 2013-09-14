@@ -3883,7 +3883,7 @@ Cannot fill $_exitsignal with the correct signal number.\n"));
      another thread.  If so, then step that thread past the breakpoint,
      and continue it.  */
 
-  if (ecs->event_thread->suspend.stop_signal == GDB_SIGNAL_TRAP)
+  if (0 && ecs->event_thread->suspend.stop_signal == GDB_SIGNAL_TRAP)
     {
       int thread_hop_needed = 0;
       struct address_space *aspace = 
@@ -3903,7 +3903,7 @@ Cannot fill $_exitsignal with the correct signal number.\n"));
 	     no matter which thread hit the singlestep breakpoint.  */
 	  gdb_assert (ptid_equal (inferior_ptid, singlestep_ptid));
 	  if (debug_infrun)
-	    fprintf_unfiltered (gdb_stdlog, "infrun: software single step "
+	    fprintf_unfiltered (gdb_stdlog, "infrun: maybe software single step "
 				"trap for %s\n",
 				target_pid_to_str (ecs->ptid));
 
@@ -3959,7 +3959,6 @@ Cannot fill $_exitsignal with the correct signal number.\n"));
 		 if (debug_infrun)
 		   fprintf_unfiltered (gdb_stdlog,
 				       "infrun: unexpected thread\n");
-
 		 thread_hop_needed = 1;
 		 stepping_past_singlestep_breakpoint = 1;
 		 saved_singlestep_ptid = singlestep_ptid;
@@ -4039,13 +4038,6 @@ Cannot fill $_exitsignal with the correct signal number.\n"));
   frame = get_current_frame ();
   gdbarch = get_frame_arch (frame);
 
-  if (singlestep_breakpoints_inserted_p)
-    {
-      /* Pull the single step breakpoints out of the target.  */
-      remove_single_step_breakpoints ();
-      singlestep_breakpoints_inserted_p = 0;
-    }
-
   if (stepped_after_stopped_by_watchpoint)
     stopped_by_watchpoint = 0;
   else
@@ -4078,6 +4070,13 @@ Cannot fill $_exitsignal with the correct signal number.\n"));
 	 we must disable the current watchpoint; it's simplest to
 	 disable all watchpoints and breakpoints.  */
       int hw_step = 1;
+
+      if (singlestep_breakpoints_inserted_p)
+	{
+	  /* Pull the single step breakpoints out of the target.  */
+	  remove_single_step_breakpoints ();
+	  singlestep_breakpoints_inserted_p = 0;
+	}
 
       if (!target_have_steppable_watchpoint)
 	{
@@ -4161,6 +4160,13 @@ Cannot fill $_exitsignal with the correct signal number.\n"));
       if (ecs->event_thread->control.step_range_end == 0
 	  && step_through_delay)
 	{
+	  if (singlestep_breakpoints_inserted_p)
+	    {
+	      /* Pull the single step breakpoints out of the target.  */
+	      remove_single_step_breakpoints ();
+	      singlestep_breakpoints_inserted_p = 0;
+	    }
+
 	  /* The user issued a continue when stopped at a breakpoint.
 	     Set up for another trap and get out of here.  */
          ecs->event_thread->stepping_over_breakpoint = 1;
@@ -4440,6 +4446,13 @@ process_event_stop_test (struct execution_control_state *ecs)
   struct gdbarch *gdbarch;
   CORE_ADDR jmp_buf_pc;
   struct bpstat_what what;
+
+  if (singlestep_breakpoints_inserted_p)
+    {
+      /* Pull the single step breakpoints out of the target.  */
+      remove_single_step_breakpoints ();
+      singlestep_breakpoints_inserted_p = 0;
+    }
 
   /* Handle cases caused by hitting a breakpoint.  */
 
