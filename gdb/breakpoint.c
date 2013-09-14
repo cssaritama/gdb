@@ -244,7 +244,9 @@ static void update_global_location_list_nothrow (int);
 
 static int is_hardware_watchpoint (const struct breakpoint *bpt);
 
-static void insert_breakpoint_locations (void);
+typedef int (*insert_bp_locations_filter) (struct bp_location *loc);
+
+static void insert_breakpoint_locations (insert_bp_locations_filter filter);
 
 static int syscall_catchpoint_p (struct breakpoint *b);
 
@@ -2733,7 +2735,7 @@ insert_breakpoints (void)
      always_inserted_mode is not enabled.  Explicitly insert them
      now.  */
   if (!breakpoints_always_inserted_mode ())
-    insert_breakpoint_locations ();
+    insert_breakpoint_locations (NULL);
 }
 
 /* Invoke CALLBACK for each of bp_location.  */
@@ -2813,7 +2815,7 @@ update_inserted_breakpoint_locations (void)
 /* Used when starting or continuing the program.  */
 
 static void
-insert_breakpoint_locations (void)
+insert_breakpoint_locations (insert_bp_locations_filter filter)
 {
   struct breakpoint *bpt;
   struct bp_location *bl, **blp_tmp;
@@ -2842,6 +2844,9 @@ insert_breakpoint_locations (void)
 	 has BL->OWNER always non-NULL.  */
       if (bl->owner->thread != -1
 	  && !valid_thread_id (bl->owner->thread))
+	continue;
+
+      if (filter != NULL && !filter (bl))
 	continue;
 
       switch_to_program_space_and_thread (bl->pspace);
@@ -2911,6 +2916,18 @@ You may have requested too many hardware breakpoints/watchpoints.\n");
     }
 
   do_cleanups (cleanups);
+}
+
+static int
+filter_single_step_locations (struct bp_location *loc)
+{
+  return (loc->owner->type == bp_single_step);
+}
+
+void
+insert_single_step_breakpoints (void)
+{
+  insert_breakpoint_locations (filter_single_step_locations);
 }
 
 /* Used when the program stops.
@@ -12613,7 +12630,7 @@ update_global_location_list (int should_insert)
 	  || (gdbarch_has_global_breakpoints (target_gdbarch ()))))
     {
       if (should_insert)
-	insert_breakpoint_locations ();
+	insert_breakpoint_locations (NULL);
       else
 	{
 	  /* Though should_insert is false, we may need to update conditions
