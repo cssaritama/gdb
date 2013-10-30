@@ -56,6 +56,9 @@ delete_breakpoints
 # really dequeued and that GDB sees it.
 gdb_test_no_output "set debug infrun 1"
 
+# Make sure the target backend reports the signal to GDB core.
+gdb_test "handle SIGCHLD print"
+
 # Helper to extract the current PC.  PREFIX is used to make each call
 # have its own unique test name.
 
