@@ -5365,6 +5365,7 @@ switch_back_to_stepped_thread (struct execution_control_state *ecs)
 
 	  if (gdbarch_software_single_step_p (gdbarch))
 	    {
+	      tp->control.may_range_step = 0;
 	      insert_single_step_breakpoint (frame, get_frame_pc (frame));
 	      resume (0, GDB_SIGNAL_0);
 	      prepare_to_wait (ecs);
