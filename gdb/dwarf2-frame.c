@@ -970,6 +970,8 @@ dwarf2_compile_cfa_to_ax (struct agent_expr *expr, struct axs_value *loc,
 
 struct dwarf2_frame_cache
 {
+  int in_frame_cache;
+
   /* DWARF Call Frame Address.  */
   CORE_ADDR cfa;
 
@@ -1028,7 +1030,11 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
   const gdb_byte *instr;
 
   if (*this_cache)
-    return *this_cache;
+    {
+      cache = (struct dwarf2_frame_cache *) *this_cache;
+      gdb_assert (!cache->in_frame_cache);
+      return cache;
+    }
 
   /* Allocate a new cache.  */
   cache = FRAME_OBSTACK_ZALLOC (struct dwarf2_frame_cache);
@@ -1039,6 +1045,9 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
   /* Allocate and initialize the frame state.  */
   fs = XZALLOC (struct dwarf2_frame_state);
   old_chain = make_cleanup (dwarf2_frame_state_free, fs);
+
+  make_cleanup_restore_integer (&cache->in_frame_cache);
+  cache->in_frame_cache = 1;
 
   /* Unwind the PC.
 
