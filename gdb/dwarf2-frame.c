@@ -995,12 +995,16 @@ struct dwarf2_frame_cache
   /* The .text offset.  */
   CORE_ADDR text_offset;
 
+  LONGEST entry_cfa_sp_offset;
+  int entry_cfa_sp_offset_p;
+
   /* If not NULL then this frame is the bottom frame of a TAILCALL_FRAME
      sequence.  If NULL then it is a normal case with no TAILCALL_FRAME
      involved.  Non-bottom frames of a virtual tail call frames chain use
      dwarf2_tailcall_frame_unwind unwinder so this field does not apply for
      them.  */
   void *tailcall_cache;
+  int tailcall_cache_p;
 };
 
 /* A cleanup that sets a pointer to NULL.  */
@@ -1025,8 +1029,6 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
   struct dwarf2_fde *fde;
   volatile struct gdb_exception ex;
   CORE_ADDR entry_pc;
-  LONGEST entry_cfa_sp_offset;
-  int entry_cfa_sp_offset_p = 0;
   const gdb_byte *instr;
 
   if (*this_cache)
@@ -1098,8 +1100,8 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
 	  && (gdbarch_dwarf2_reg_to_regnum (gdbarch, fs->regs.cfa_reg)
 	      == gdbarch_sp_regnum (gdbarch)))
 	{
-	  entry_cfa_sp_offset = fs->regs.cfa_offset;
-	  entry_cfa_sp_offset_p = 1;
+	  cache->entry_cfa_sp_offset = fs->regs.cfa_offset;
+	  cache->entry_cfa_sp_offset_p = 1;
 	}
     }
   else
@@ -1249,11 +1251,13 @@ incomplete CFI data; unspecified registers (e.g., %s) at %s"),
 
   do_cleanups (old_chain);
 
+#if 0
   /* Try to find a virtual tail call frames chain with bottom (callee) frame
      starting at THIS_FRAME.  */
   dwarf2_tailcall_sniffer_first (this_frame, &cache->tailcall_cache,
 				 (entry_cfa_sp_offset_p
 				  ? &entry_cfa_sp_offset : NULL));
+#endif
 
   discard_cleanups (reset_cache_cleanup);
   return cache;
@@ -1306,6 +1310,18 @@ dwarf2_frame_prev_register (struct frame_info *this_frame, void **this_cache,
      them.  If dwarf2_tailcall_prev_register_first does not have specific value
      unwind the register, tail call frames are assumed to have the register set
      of the top caller.  */
+
+  /* Try to find a virtual tail call frames chain with bottom (callee) frame
+     starting at THIS_FRAME.  */
+
+  if (!cache->tailcall_cache_p)
+    {
+      cache->tailcall_cache_p = 1;
+      dwarf2_tailcall_sniffer_first (this_frame, &cache->tailcall_cache,
+				     (cache->entry_cfa_sp_offset_p
+				      ? &cache->entry_cfa_sp_offset : NULL));
+    }
+
   if (cache->tailcall_cache)
     {
       struct value *val;
