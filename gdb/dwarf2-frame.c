@@ -1506,6 +1506,8 @@ dwarf2_frame_base_sniffer (struct frame_info *this_frame)
   return NULL;
 }
 
+extern void *get_frame_cache (struct frame_info *fi);
+
 /* Compute the CFA for THIS_FRAME, but only if THIS_FRAME came from
    the DWARF unwinder.  This is used to implement
    DW_OP_call_frame_cfa.  */
@@ -1513,6 +1515,8 @@ dwarf2_frame_base_sniffer (struct frame_info *this_frame)
 CORE_ADDR
 dwarf2_frame_cfa (struct frame_info *this_frame)
 {
+  struct dwarf2_frame_cache *cache;
+
   while (get_frame_type (this_frame) == INLINE_FRAME)
     this_frame = get_prev_frame (this_frame);
   /* This restriction could be lifted if other unwinders are known to
@@ -1525,7 +1529,10 @@ dwarf2_frame_cfa (struct frame_info *this_frame)
     throw_error (NOT_AVAILABLE_ERROR,
 		 _("can't compute CFA for this frame: "
 		   "required registers or memory are unavailable"));
-  return get_frame_base (this_frame);
+
+  cache = get_frame_cache (this_frame);
+  gdb_assert (!cache->unavailable_retaddr && !cache->undefined_retaddr);
+  return cache->cfa;
 }
 
 const struct objfile_data *dwarf2_frame_objfile_data;

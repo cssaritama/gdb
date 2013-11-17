@@ -389,6 +389,14 @@ skip_artificial_frames (struct frame_info *frame)
   return frame;
 }
 
+extern void *get_frame_cache (struct frame_info *fi);
+
+void *
+get_frame_cache (struct frame_info *fi)
+{
+  return fi->prologue_cache;
+}
+
 /* Return a frame uniq ID that can be used to, later, re-find the
    frame.  */
 
