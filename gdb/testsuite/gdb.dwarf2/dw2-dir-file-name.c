@@ -64,7 +64,7 @@ FUNC (compdir_absolute_ldir_absolute_file_absolute_same)	\
 FUNC (compdir_absolute_ldir_absolute_file_absolute_different)
 
 #define FUNC(name)					\
-  void							\
+  static void							\
   name (void)						\
   {							\
     v++;						\

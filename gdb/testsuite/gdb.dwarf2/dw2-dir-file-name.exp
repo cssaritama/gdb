@@ -317,10 +317,33 @@ lappend opts "additional_flags=-DFDIR=\"fdir\""
 # CU's DW_AT_name and .debug_line's filename.
 lappend opts "additional_flags=-DFILE=\"${srctmpfile}\""
 
-if { [gdb_compile "${asmsrcfile} ${srcdir}/${subdir}/$srcfile" "${binfile}" executable $opts] != "" } {
+if { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}out.S" assembly $opts] != "" } {
     untested "Cannot compile ${asmsrcfile} or $srcfile"
     return -1
 }
+
+set fd [open "${binfile}out2.S" w]
+
+set fd2 [open "${binfile}out.S"]
+set fd3 [open "${asmsrcfile}"]
+
+puts $fd [read $fd2]
+puts $fd [read $fd3]
+
+close $fd
+close $fd2
+close $fd3
+
+
+if { [gdb_compile "${binfile}out2.S" "${binfile}" executable $opts] != "" } {
+    untested "Cannot compile ${asmsrcfile} or $srcfile"
+    return -1
+}
+
+#if { [gdb_compile "${asmsrcfile} ${srcdir}/${subdir}/$srcfile" "${binfile}" executable $opts] != "" } {
+#    untested "Cannot compile ${asmsrcfile} or $srcfile"
+#    return -1
+#}
 
 set dirs {}
 foreach r {"" /rdir} {
