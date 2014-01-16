@@ -29,3 +29,9 @@ main (void)
   func ();
   return 0;
 }
+
+/* Addresses represented as data symbols, thus without Thumb (etc.)
+   mode bits.  The dw2-ifort-parameter-debug.S file uses this as
+   func's low_pc/high_pc.  */
+extern void *func_addr __attribute__ ((alias ("func")));
+extern void *main_addr __attribute__ ((alias ("main")));

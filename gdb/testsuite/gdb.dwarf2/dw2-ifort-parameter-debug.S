@@ -35,8 +35,8 @@
 	.uleb128	2			/* Abbrev: DW_TAG_subprogram */
 	.byte		1			/* DW_AT_external */
 	.ascii		"func\0"		/* DW_AT_name */
-	.4byte		func			/* DW_AT_low_pc */
-	.4byte		main			/* DW_AT_high_pc */
+	.4byte		func_addr		/* DW_AT_low_pc */
+	.4byte		main_addr		/* DW_AT_high_pc */
 
 	.uleb128	3			/* Abbrev: DW_TAG_formal_parameter */
 	.ascii		"param\0"		/* DW_AT_name */
