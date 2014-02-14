@@ -1,0 +1,62 @@
+# Copyright (C) 2011-2014 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test that GDB doesn't inadvertently resume the stepped thread when a
+# signal arrives while stepping over the breakpoint that last caused a
+# stop, when the thread that hit that breakpoint is not the stepped
+# thread.
+
+standard_testfile
+set executable ${testfile}
+
+if {[gdb_compile_pthreads "${srcdir}/${subdir}/${srcfile}" "${binfile}" \
+	 executable [list debug "incdir=${objdir}"]] != "" } {
+    return -1
+}
+
+# Start with a fresh gdb.
+
+clean_restart $executable
+
+if ![runto_main] {
+    return -1
+}
+
+gdb_breakpoint [gdb_get_line_number "set wait-thread breakpoint here"]
+gdb_continue_to_breakpoint "run to wait-thread breakpoint"
+gdb_test "info threads" "" "info threads with thread 2"
+
+gdb_test "set scheduler-locking on"
+
+delete_breakpoints
+
+gdb_breakpoint [gdb_get_line_number "set breakpoint child here"]
+gdb_test "thread 2" "" "switch to thread 2 to run to its breakpoint"
+gdb_continue_to_breakpoint "run to breakpoint in thread 2"
+gdb_test "p *myp = 0" "" "unbreak loop in thread 2"
+
+gdb_breakpoint [gdb_get_line_number "set breakpoint step-over here"]
+
+# Now threads 2 has stopped for a breakpoint.
+
+# Switch back to thread 1, disable scheduler locking, and next.  The
+# step-over breakpoint for thread 2 should be reported.
+
+gdb_test "thread 1" "" "switch to thread 3 to continue"
+gdb_test "set scheduler-locking off"
+gdb_test "info breakpoints"
+gdb_test "set debug infrun 1"
+
+gdb_test "next" "step-over here.*"
