@@ -233,9 +233,6 @@ static void tcatch_command (char *arg, int from_tty);
 
 static void detach_single_step_breakpoints (void);
 
-static int single_step_breakpoint_inserted_here_p (struct address_space *,
-						   CORE_ADDR pc);
-
 static void free_bp_location (struct bp_location *loc);
 static void incref_bp_location (struct bp_location *loc);
 static void decref_bp_location (struct bp_location **loc);
@@ -15139,7 +15136,7 @@ detach_single_step_breakpoints (void)
 /* Check whether a software single-step breakpoint is inserted at
    PC.  */
 
-static int
+int
 single_step_breakpoint_inserted_here_p (struct address_space *aspace, 
 					CORE_ADDR pc)
 {
