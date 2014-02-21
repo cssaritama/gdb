@@ -230,6 +230,12 @@ void set_step_info (struct frame_info *frame, struct symtab_and_line sal);
 
 extern void clear_exit_convenience_vars (void);
 
+/* Returns true if we're trying to step over a breakpoint at ADDRESS
+   in ASPACE.  */
+
+extern int stepping_over_breakpoint_at (struct address_space *aspace,
+					CORE_ADDR address);
+
 /* From infcmd.c */
 
 extern void post_create_inferior (struct target_ops *, int);
