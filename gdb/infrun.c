@@ -1567,6 +1567,8 @@ displaced_step_fixup (ptid_t event_ptid, enum gdb_signal signal)
       struct gdbarch *gdbarch;
       CORE_ADDR actual_pc;
       struct address_space *aspace;
+      struct thread_info *tp;
+      int step;
 
       head = displaced->step_request_queue;
       ptid = head->ptid;
@@ -1575,11 +1577,17 @@ displaced_step_fixup (ptid_t event_ptid, enum gdb_signal signal)
 
       context_switch (ptid);
 
+      tp = inferior_thread ();
       regcache = get_thread_regcache (ptid);
+      gdbarch = get_regcache_arch (regcache);
       actual_pc = regcache_read_pc (regcache);
       aspace = get_regcache_aspace (regcache);
 
-      if (breakpoint_here_p (aspace, actual_pc))
+      /* Go back to what we were trying to do.  */
+      step = currently_stepping (tp);
+
+      if ((step && gdbarch_software_single_step_p (gdbarch))
+	  ||  breakpoint_here_p (aspace, actual_pc))
 	{
 	  if (debug_displaced)
 	    fprintf_unfiltered (gdb_stdlog,
@@ -1587,8 +1595,6 @@ displaced_step_fixup (ptid_t event_ptid, enum gdb_signal signal)
 				target_pid_to_str (ptid));
 
 	  displaced_step_prepare (ptid);
-
-	  gdbarch = get_regcache_arch (regcache);
 
 	  if (debug_displaced)
 	    {
@@ -1612,15 +1618,9 @@ displaced_step_fixup (ptid_t event_ptid, enum gdb_signal signal)
 	}
       else
 	{
-	  int step;
-	  struct thread_info *tp = inferior_thread ();
-
 	  /* The breakpoint we were sitting under has since been
 	     removed.  */
 	  tp->control.trap_expected = 0;
-
-	  /* Go back to what we were trying to do.  */
-	  step = currently_stepping (tp);
 
 	  if (debug_displaced)
 	    fprintf_unfiltered (gdb_stdlog,
