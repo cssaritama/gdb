@@ -1323,7 +1323,21 @@ aix_thread_fetch_registers (struct target_ops *ops,
       if (tid == PTHDB_INVALID_TID)
 	fetch_regs_user_thread (regcache, thread->private->pdtid);
       else
-	fetch_regs_kernel_thread (regcache, regno, tid);
+	{
+	  /* Can't simply defer to the target beneath for live
+	    processes (must use PTT_READ_SPRS, etc.).  */
+	  if (target_has_execution)
+	    fetch_regs_kernel_thread (regcache, regno, tid);
+	  else
+	    {
+	      struct cleanup *old_chain;
+
+	      old_chain = save_inferior_ptid ();
+	      inferior_ptid = pid_to_ptid (tid);
+	      beneath->to_fetch_registers (beneath, regcache, regno);
+	      do_cleanups (old_chain);
+	    }
+	}
     }
 }
 
